@@ -21,6 +21,7 @@ export type FocusAreaId =
 export type SettingKey =
   | "user_name"
   | "onboarding_completed"
+  | "splash_seen"
   | "wake_time"
   | "planning_time"
   | "reflection_time"

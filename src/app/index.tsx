@@ -1,92 +1,49 @@
-import { AppText } from "@/components/ui/AppText";
-import { Button } from "@/components/ui/Button";
-import { useTheme } from "@/theme/ThemeProvider";
-import { radii, spacing } from "@/theme/tokens";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getSetting, setSetting } from "@/db/repositories/settings";
+import { AnimatedSplash, BRAND } from "@/features/splash/AnimatedSplash";
+import { Stack, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
 
-export default function DesignCheck() {
-  const { colors, mode, setMode } = useTheme();
-  const insets = useSafeAreaInsets();
+type Boot = { fast: boolean; onboarded: boolean };
 
-  const swatches = [
-    ["primary", colors.primary],
-    ["success", colors.success],
-    ["warning", colors.warning],
-    ["error", colors.error],
-    ["surface", colors.surface],
-    ["sunken", colors.surfaceSunken],
-  ] as const;
+export default function Index() {
+  const router = useRouter();
+  const [boot, setBoot] = useState<Boot | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([getSetting("onboarding_completed"), getSetting("splash_seen")])
+      .then(([onboarded, seen]) => {
+        if (active)
+          setBoot({ onboarded: onboarded === "1", fast: seen === "1" });
+      })
+      .catch((error) => {
+        console.warn("Could not read startup settings", error);
+        if (active) setBoot({ onboarded: false, fast: false });
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleDone = useCallback(() => {
+    if (!boot) return;
+    setSetting("splash_seen", "1").catch((error) =>
+      console.warn("Could not save splash flag", error),
+    );
+    router.replace(boot.onboarded ? "/today" : "/onboarding");
+  }, [boot, router]);
 
   return (
-    <ScrollView
-      style={{ backgroundColor: colors.background }}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: insets.top + spacing.xl,
-          paddingBottom: insets.bottom + spacing.xxl,
-        },
-      ]}
-    >
-      <AppText variant="caption" tone="accent">
-        DESIGN CHECK
-      </AppText>
-      <AppText variant="displayXL">Gritio</AppText>
-      <AppText tone="secondary">
-        Every goal leads to an action. Theme: {mode}.
-      </AppText>
-
-      <View style={styles.swatchRow}>
-        {swatches.map(([name, color]) => (
-          <View key={name} style={styles.swatchItem}>
-            <View
-              style={[
-                styles.swatch,
-                { backgroundColor: color, borderColor: colors.border },
-              ]}
-            />
-            <AppText variant="caption" tone="muted">
-              {name}
-            </AppText>
-          </View>
-        ))}
-      </View>
-
-      <AppText variant="displayM">Theme</AppText>
-      <View style={styles.row}>
-        <Button
-          label="Light"
-          variant={mode === "light" ? "primary" : "secondary"}
-          onPress={() => setMode("light")}
-          style={styles.flex}
-        />
-        <Button
-          label="Dark"
-          variant={mode === "dark" ? "primary" : "secondary"}
-          onPress={() => setMode("dark")}
-          style={styles.flex}
-        />
-        <Button
-          label="System"
-          variant={mode === "system" ? "primary" : "secondary"}
-          onPress={() => setMode("system")}
-          style={styles.flex}
-        />
-      </View>
-
-      <Button label="Primary button" onPress={() => {}} />
-      <Button label="Secondary button" variant="secondary" onPress={() => {}} />
-      <Button label="Ghost button" variant="ghost" onPress={() => {}} />
-    </ScrollView>
+    <View style={styles.root}>
+      <Stack.Screen options={{ animation: "fade", gestureEnabled: false }} />
+      <StatusBar style="light" />
+      {boot ? <AnimatedSplash fast={boot.fast} onDone={handleDone} /> : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: spacing.xl, gap: spacing.lg },
-  row: { flexDirection: "row", gap: spacing.sm },
-  flex: { flex: 1 },
-  swatchRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
-  swatchItem: { alignItems: "center", gap: spacing.xs },
-  swatch: { width: 48, height: 48, borderRadius: radii.md, borderWidth: 1 },
+  root: { flex: 1, backgroundColor: BRAND.charcoal },
 });
