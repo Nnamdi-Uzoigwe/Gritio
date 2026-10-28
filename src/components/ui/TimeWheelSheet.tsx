@@ -1,18 +1,18 @@
-import { AppText } from "@/components/ui/AppText";
-import { BottomSheet } from "@/components/ui/BottomSheet";
-import { Button } from "@/components/ui/Button";
 import { parseTime, toTimeString } from "@/lib/time";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radii, spacing } from "@/theme/tokens";
 import * as Haptics from "expo-haptics";
 import { useRef, useState } from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    View,
-    type NativeScrollEvent,
-    type NativeSyntheticEvent,
+  ScrollView,
+  StyleSheet,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
+import { AppText } from "./AppText";
+import { BottomSheet } from "./BottomSheet";
+import { Button } from "./Button";
 
 const ITEM_HEIGHT = 44;
 const VISIBLE_ROWS = 5;
@@ -91,7 +91,7 @@ function WheelColumn({ data, index, onChange, width }: WheelProps) {
   );
 }
 
-function TimeWheelBody({
+export function TimeWheelBody({
   value,
   onConfirm,
 }: {

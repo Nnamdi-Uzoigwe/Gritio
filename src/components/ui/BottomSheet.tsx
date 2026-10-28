@@ -1,25 +1,52 @@
 import { useTheme } from "@/theme/ThemeProvider";
 import { motion, radii, spacing } from "@/theme/tokens";
 import React, { useEffect, useState } from "react";
-import { Dimensions, Modal, Pressable, StyleSheet, View } from "react-native";
 import {
-    Gesture,
-    GestureDetector,
-    GestureHandlerRootView,
+  Dimensions,
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
 } from "react-native-gesture-handler";
 import Animated, {
-    Extrapolation,
-    interpolate,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-    withTiming,
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "./AppText";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const EXIT_MS = 220;
+
+function useKeyboardHeight(): number {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvent, (e) =>
+      setHeight(e.endCoordinates.height),
+    );
+    const hide = Keyboard.addListener(hideEvent, () => setHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return height;
+}
 
 type SheetProps = {
   visible: boolean;
@@ -37,6 +64,7 @@ function SheetContent({
 }: SheetProps & { onExited: () => void }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const translateY = useSharedValue(SCREEN_HEIGHT);
 
   useEffect(() => {
@@ -44,6 +72,7 @@ function SheetContent({
       translateY.value = withSpring(0, motion.spring.gentle);
       return;
     }
+    Keyboard.dismiss();
     translateY.value = withTiming(SCREEN_HEIGHT, { duration: EXIT_MS });
     const timer = setTimeout(onExited, EXIT_MS + 20);
     return () => clearTimeout(timer);
@@ -74,6 +103,11 @@ function SheetContent({
     ),
   }));
 
+  const bottomPad =
+    keyboardHeight > 0
+      ? keyboardHeight + spacing.md
+      : insets.bottom + spacing.lg;
+
   return (
     <View style={styles.fill}>
       <Animated.View
@@ -93,10 +127,7 @@ function SheetContent({
       <Animated.View
         style={[
           styles.sheet,
-          {
-            backgroundColor: colors.surface,
-            paddingBottom: insets.bottom + spacing.lg,
-          },
+          { backgroundColor: colors.surface, paddingBottom: bottomPad },
           sheetStyle,
         ]}
       >
@@ -139,6 +170,7 @@ export function BottomSheet(props: SheetProps) {
 const styles = StyleSheet.create({
   fill: { flex: 1, justifyContent: "flex-end" },
   sheet: {
+    maxHeight: SCREEN_HEIGHT * 0.92,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
     paddingHorizontal: spacing.xl,

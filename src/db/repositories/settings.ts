@@ -21,3 +21,8 @@ export async function setSetting(
     value,
   );
 }
+
+export async function deleteSetting(key: SettingKey): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("DELETE FROM settings WHERE key = ?", key);
+}

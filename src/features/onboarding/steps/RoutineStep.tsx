@@ -4,12 +4,12 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { radii, spacing, touch } from "@/theme/tokens";
 import { useState } from "react";
 import { Pressable, StyleSheet, Switch, View } from "react-native";
+import { TimeWheelSheet } from "../../../components/ui/TimeWheelSheet";
 import { StepFrame } from "../components/StepFrame";
-import { TimeWheelSheet } from "../components/TimeWheelSheet";
 import {
-    useOnboardingStore,
-    type ReminderField,
-    type TimeField,
+  useOnboardingStore,
+  type ReminderField,
+  type TimeField,
 } from "../store";
 
 type RowProps = {
