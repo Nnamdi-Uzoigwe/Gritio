@@ -108,6 +108,9 @@ export function CommitmentRow({ item, onToggle, onOpen, onPostpone }: Props) {
           </AppText>
           <View style={styles.meta}>
             <Chip label={meta.label} icon={meta.icon} />
+            {item.done && item.doneLevel === "minimum" ? (
+              <Chip label="Minimum" icon="leaf-outline" />
+            ) : null}
             {item.time ? (
               <AppText variant="caption" tone="muted">
                 {formatTime12(item.time)}
@@ -142,6 +145,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   text: { flex: 1, gap: spacing.xs },
-  meta: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  meta: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
   struck: { textDecorationLine: "line-through" },
 });

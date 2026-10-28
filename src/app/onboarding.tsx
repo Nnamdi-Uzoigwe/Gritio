@@ -16,16 +16,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Alert,
-    BackHandler,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
-    useWindowDimensions,
+  Alert,
+  BackHandler,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  View,
+  useWindowDimensions,
 } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -163,6 +164,7 @@ export default function OnboardingScreen() {
       ]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      <StatusBar barStyle="light-content" />
       <Stack.Screen options={{ animation: "fade", gestureEnabled: false }} />
 
       <View style={styles.header}>

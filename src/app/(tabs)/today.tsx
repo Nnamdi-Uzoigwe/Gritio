@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/Button";
 import { CountUp } from "@/components/ui/CountUp";
 import { FloatingActionMenu } from "@/components/ui/FloatingActionMenu";
 import { ProgressRing } from "@/components/ui/ProgressRing";
+import { HabitLevelSheet } from "@/features/habits/components/HabitLevelSheet";
 import {
   AddTaskSheet,
   type EditableTask,
@@ -63,12 +64,14 @@ export default function TodayScreen() {
   });
   const [detailKey, setDetailKey] = useState<string | null>(null);
   const [rescheduleKey, setRescheduleKey] = useState<string | null>(null);
+  const [levelKey, setLevelKey] = useState<string | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [showCompleted, setShowCompleted] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const detail = items.find((i) => i.key === detailKey) ?? null;
   const rescheduleTarget = items.find((i) => i.key === rescheduleKey) ?? null;
+  const levelItem = items.find((i) => i.key === levelKey) ?? null;
 
   const pending = items.filter((i) => !i.done);
   const completed = items.filter((i) => i.done);
@@ -117,6 +120,15 @@ export default function TodayScreen() {
       },
     });
 
+  const needsLevel = (item: Commitment) =>
+    item.source === "habit" && !item.done && Boolean(item.levels?.minimum);
+
+  // A habit with a minimum version asks which version you did. Everything else completes in one tap.
+  const handleToggle = (item: Commitment) => {
+    if (needsLevel(item)) setLevelKey(item.key);
+    else toggle(item);
+  };
+
   const renderRow = (item: Commitment) => (
     <Animated.View
       key={item.key}
@@ -126,7 +138,7 @@ export default function TodayScreen() {
     >
       <CommitmentRow
         item={item}
-        onToggle={() => toggle(item)}
+        onToggle={() => handleToggle(item)}
         onOpen={() => setDetailKey(item.key)}
         onPostpone={
           item.source === "habit" ? undefined : () => setRescheduleKey(item.key)
@@ -316,6 +328,12 @@ export default function TodayScreen() {
             onPress: openAdd,
           },
           {
+            key: "habit",
+            label: "Create habit",
+            icon: "repeat-outline",
+            onPress: () => router.push("/habit/new"),
+          },
+          {
             key: "goal",
             label: "Create goal",
             icon: "flag-outline",
@@ -342,6 +360,12 @@ export default function TodayScreen() {
         item={detail}
         onClose={() => setDetailKey(null)}
         onToggle={(item) => {
+          if (needsLevel(item)) {
+            // Let the details sheet finish closing before the next sheet opens.
+            setDetailKey(null);
+            setTimeout(() => setLevelKey(item.key), 280);
+            return;
+          }
           toggle(item);
           setDetailKey(null);
         }}
@@ -366,6 +390,18 @@ export default function TodayScreen() {
         onPick={(newDate) => {
           if (rescheduleTarget) reschedule(rescheduleTarget, newDate);
           setRescheduleKey(null);
+        }}
+      />
+
+      <HabitLevelSheet
+        visible={levelItem !== null}
+        habitName={levelItem?.title ?? ""}
+        levels={levelItem?.levels ?? null}
+        onClose={() => setLevelKey(null)}
+        onPick={(level) => {
+          const item = levelItem;
+          setLevelKey(null);
+          if (item) toggle(item, level);
         }}
       />
 

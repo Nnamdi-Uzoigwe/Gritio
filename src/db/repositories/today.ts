@@ -1,8 +1,9 @@
-import { isValidDateKey, nowIso, weekdayOf } from "@/lib/dates";
-import { newId } from "@/lib/ids";
+import { isValidDateKey, weekdayOf } from "@/lib/dates";
 import { ValidationError } from "@/lib/validation";
+import type { HabitLevel } from "@/types/domain";
 import type { Commitment } from "@/types/today";
 import { getDb } from "../client";
+import { setHabitCompletion } from "./habits";
 import { postponeTask, setTaskDone } from "./tasks";
 
 type TaskRow = {
@@ -18,7 +19,9 @@ type HabitRow = {
   name: string;
   description: string | null;
   reminder_time: string | null;
-  completion_id: string | null;
+  minimum_label: string | null;
+  target_label: string | null;
+  completion_level: string | null;
 };
 type StepRow = {
   id: string;
@@ -55,7 +58,7 @@ export async function getTodayCommitments(date: string): Promise<Commitment[]> {
       date,
     ),
     db.getAllAsync<HabitRow>(
-      `SELECT h.id, h.name, h.description, h.reminder_time, hc.id AS completion_id
+      `SELECT h.id, h.name, h.description, h.reminder_time, h.minimum_label, h.target_label, hc.level AS completion_level
        FROM habits h
        JOIN habit_schedules hs ON hs.habit_id = h.id AND hs.weekday = ?
        LEFT JOIN habit_completions hc ON hc.habit_id = h.id AND hc.date = ?
@@ -82,6 +85,8 @@ export async function getTodayCommitments(date: string): Promise<Commitment[]> {
       time: r.time,
       done: r.status === "done",
       goalTitle: r.goal_title,
+      levels: null,
+      doneLevel: null,
     })),
     ...habits.map<Commitment>((r) => ({
       key: `habit:${r.id}`,
@@ -90,8 +95,18 @@ export async function getTodayCommitments(date: string): Promise<Commitment[]> {
       title: r.name,
       description: r.description,
       time: r.reminder_time,
-      done: r.completion_id !== null,
+      done: r.completion_level !== null,
       goalTitle: null,
+      levels:
+        r.minimum_label || r.target_label
+          ? { minimum: r.minimum_label, target: r.target_label }
+          : null,
+      doneLevel:
+        r.completion_level === null
+          ? null
+          : r.completion_level === "minimum"
+            ? "minimum"
+            : "target",
     })),
     ...steps.map<Commitment>((r) => ({
       key: `step:${r.id}`,
@@ -102,6 +117,8 @@ export async function getTodayCommitments(date: string): Promise<Commitment[]> {
       time: r.scheduled_time,
       done: r.completed_at !== null,
       goalTitle: r.goal_title,
+      levels: null,
+      doneLevel: null,
     })),
   ];
 
@@ -113,34 +130,20 @@ export async function setCommitmentDone(
   item: Commitment,
   date: string,
   done: boolean,
+  level?: HabitLevel,
 ): Promise<void> {
   if (item.source === "task") {
     await setTaskDone(item.id, done);
     return;
   }
-  const db = await getDb();
   if (item.source === "habit") {
-    if (done) {
-      await db.runAsync(
-        "INSERT OR IGNORE INTO habit_completions (id, habit_id, date, level, completed_at) VALUES (?, ?, ?, ?, ?)",
-        newId(),
-        item.id,
-        date,
-        "target",
-        nowIso(),
-      );
-    } else {
-      await db.runAsync(
-        "DELETE FROM habit_completions WHERE habit_id = ? AND date = ?",
-        item.id,
-        date,
-      );
-    }
+    await setHabitCompletion(item.id, date, done ? (level ?? "target") : null);
     return;
   }
+  const db = await getDb();
   await db.runAsync(
     "UPDATE goal_steps SET completed_at = ? WHERE id = ?",
-    done ? nowIso() : null,
+    done ? new Date().toISOString() : null,
     item.id,
   );
 }

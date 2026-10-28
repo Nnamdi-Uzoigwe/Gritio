@@ -2,11 +2,12 @@ import { countUnread } from "@/db/repositories/inbox";
 import { getSetting } from "@/db/repositories/settings";
 import { countOverdueTasks, deleteTask } from "@/db/repositories/tasks";
 import {
-    getTodayCommitments,
-    rescheduleCommitment,
-    setCommitmentDone,
+  getTodayCommitments,
+  rescheduleCommitment,
+  setCommitmentDone,
 } from "@/db/repositories/today";
 import { toDateKey } from "@/lib/dates";
+import type { HabitLevel } from "@/types/domain";
 import type { Commitment } from "@/types/today";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -59,17 +60,25 @@ export function useToday() {
     return () => sub.remove();
   }, [load]);
 
-  const toggle = useCallback(async (item: Commitment) => {
+  const toggle = useCallback(async (item: Commitment, level?: HabitLevel) => {
     const next = !item.done;
+    const nextLevel: HabitLevel | null =
+      next && item.source === "habit" ? (level ?? "target") : null;
     setItems((prev) =>
-      prev.map((i) => (i.key === item.key ? { ...i, done: next } : i)),
+      prev.map((i) =>
+        i.key === item.key ? { ...i, done: next, doneLevel: nextLevel } : i,
+      ),
     );
     try {
-      await setCommitmentDone(item, dateRef.current, next);
+      await setCommitmentDone(item, dateRef.current, next, level);
     } catch (error) {
       console.warn("Could not update commitment", error);
       setItems((prev) =>
-        prev.map((i) => (i.key === item.key ? { ...i, done: !next } : i)),
+        prev.map((i) =>
+          i.key === item.key
+            ? { ...i, done: item.done, doneLevel: item.doneLevel }
+            : i,
+        ),
       );
       Alert.alert(
         "Could not update",
