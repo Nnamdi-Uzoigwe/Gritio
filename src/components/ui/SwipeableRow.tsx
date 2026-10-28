@@ -1,3 +1,4 @@
+import type { IconName } from "@/lib/focusAreas";
 import { useTheme } from "@/theme/ThemeProvider";
 import { motion, radii, spacing } from "@/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
@@ -6,9 +7,9 @@ import React, { useCallback } from "react";
 import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { AppText } from "./AppText";
@@ -16,29 +17,46 @@ import { AppText } from "./AppText";
 const THRESHOLD = 96;
 const MAX_PULL = 140;
 
+type ActionTone = "success" | "warning" | "primary";
+
 type Props = {
   children: React.ReactNode;
-  completeLabel: string;
-  onComplete: () => void;
+  /** Swipe right. Optional. */
+  completeLabel?: string;
+  onComplete?: () => void;
+  /** Swipe left. Optional. */
+  postponeLabel?: string;
+  postponeIcon?: IconName;
+  postponeTone?: ActionTone;
   onPostpone?: () => void;
 };
 
-/** Swipe right to complete (or undo), swipe left to postpone when allowed. */
 export function SwipeableRow({
   children,
-  completeLabel,
+  completeLabel = "Done",
   onComplete,
+  postponeLabel = "Move",
+  postponeIcon = "calendar-outline",
+  postponeTone = "warning",
   onPostpone,
 }: Props) {
   const { colors } = useTheme();
   const x = useSharedValue(0);
   const crossed = useSharedValue(0);
+  const canComplete = onComplete !== undefined;
   const canPostpone = onPostpone !== undefined;
+
+  const leftColors =
+    postponeTone === "primary"
+      ? { bg: colors.primary, fg: colors.onPrimary }
+      : postponeTone === "success"
+        ? { bg: colors.success, fg: colors.onSuccess }
+        : { bg: colors.warning, fg: "#FFFFFF" };
 
   const fire = useCallback(
     (kind: "complete" | "postpone") => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-      if (kind === "complete") onComplete();
+      if (kind === "complete") onComplete?.();
       else onPostpone?.();
     },
     [onComplete, onPostpone],
@@ -54,7 +72,7 @@ export function SwipeableRow({
     .onUpdate((e) => {
       const next = Math.max(
         canPostpone ? -MAX_PULL : 0,
-        Math.min(MAX_PULL, e.translationX),
+        Math.min(canComplete ? MAX_PULL : 0, e.translationX),
       );
       x.value = next;
       const state = next > THRESHOLD ? 1 : next < -THRESHOLD ? -1 : 0;
@@ -83,21 +101,27 @@ export function SwipeableRow({
 
   return (
     <View style={styles.wrap}>
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          styles.bg,
-          styles.bgLeft,
-          { backgroundColor: colors.success },
-          completeBg,
-        ]}
-      >
-        <Ionicons name="checkmark-circle" size={22} color={colors.onSuccess} />
-        <AppText variant="label" style={{ color: colors.onSuccess }}>
-          {completeLabel}
-        </AppText>
-      </Animated.View>
+      {canComplete ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.bg,
+            styles.bgLeft,
+            { backgroundColor: colors.success },
+            completeBg,
+          ]}
+        >
+          <Ionicons
+            name="checkmark-circle"
+            size={22}
+            color={colors.onSuccess}
+          />
+          <AppText variant="label" style={{ color: colors.onSuccess }}>
+            {completeLabel}
+          </AppText>
+        </Animated.View>
+      ) : null}
       {canPostpone ? (
         <Animated.View
           pointerEvents="none"
@@ -105,14 +129,14 @@ export function SwipeableRow({
             StyleSheet.absoluteFill,
             styles.bg,
             styles.bgRight,
-            { backgroundColor: colors.warning },
+            { backgroundColor: leftColors.bg },
             postponeBg,
           ]}
         >
-          <AppText variant="label" style={{ color: "#FFFFFF" }}>
-            Move
+          <AppText variant="label" style={{ color: leftColors.fg }}>
+            {postponeLabel}
           </AppText>
-          <Ionicons name="calendar-outline" size={22} color="#FFFFFF" />
+          <Ionicons name={postponeIcon} size={22} color={leftColors.fg} />
         </Animated.View>
       ) : null}
       <GestureDetector gesture={pan}>

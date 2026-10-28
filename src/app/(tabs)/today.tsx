@@ -4,8 +4,8 @@ import { CountUp } from "@/components/ui/CountUp";
 import { FloatingActionMenu } from "@/components/ui/FloatingActionMenu";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import {
-    AddTaskSheet,
-    type EditableTask,
+  AddTaskSheet,
+  type EditableTask,
 } from "@/features/tasks/components/AddTaskSheet";
 import { CommitmentRow } from "@/features/today/components/CommitmentRow";
 import { EmptyDay } from "@/features/today/components/EmptyDay";
@@ -23,17 +23,17 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    View,
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import Animated, {
-    FadeIn,
-    FadeOut,
-    LinearTransition,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -310,16 +310,22 @@ export default function TodayScreen() {
       <FloatingActionMenu
         actions={[
           {
-            key: "review",
-            label: "Review plan",
-            icon: "list-outline",
-            onPress: () => setPlanOpen(true),
-          },
-          {
             key: "task",
             label: "Add task",
             icon: "add-circle-outline",
             onPress: openAdd,
+          },
+          {
+            key: "goal",
+            label: "Create goal",
+            icon: "flag-outline",
+            onPress: () => router.push("/goal/new"),
+          },
+          {
+            key: "review",
+            label: "Review plan",
+            icon: "list-outline",
+            onPress: () => setPlanOpen(true),
           },
         ]}
       />
