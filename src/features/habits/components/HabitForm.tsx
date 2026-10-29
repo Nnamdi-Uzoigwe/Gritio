@@ -7,6 +7,7 @@ import { DatePickerPanel } from "@/components/ui/DatePickerPanel";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { TimeWheelBody } from "@/components/ui/TimeWheelSheet";
 import { getFocusAreaIds } from "@/db/repositories/focusAreas";
+import { ReminderToggleRow } from "@/features/notifications/components/ReminderToggleRow";
 import { addDays, describeDate, toDateKey } from "@/lib/dates";
 import { FOCUS_AREAS } from "@/lib/focusAreas";
 import { ALL_DAYS } from "@/lib/habitDays";
@@ -19,12 +20,12 @@ import type { HabitInput } from "@/types/habits";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import { HABIT_SUGGESTIONS } from "../suggestions";
 import { DaySelector } from "./DaySelector";
@@ -84,6 +85,9 @@ export function HabitForm({ mode, initial, onSubmit, children }: Props) {
   const [timeOfDay, setTimeOfDay] = useState<string | null>(
     initial?.timeOfDay ?? null,
   );
+  const [reminders, setReminders] = useState(
+    initial?.remindersEnabled ?? false,
+  );
   const [startDate, setStartDate] = useState(initial?.startDate ?? today);
   const [minimumLabel, setMinimumLabel] = useState(initial?.minimumLabel ?? "");
   const [targetLabel, setTargetLabel] = useState(initial?.targetLabel ?? "");
@@ -118,6 +122,7 @@ export function HabitForm({ mode, initial, onSubmit, children }: Props) {
         weekdays,
         startDate,
         timeOfDay,
+        remindersEnabled: reminders && timeOfDay !== null,
         minimumLabel,
         targetLabel,
       });
@@ -222,6 +227,14 @@ export function HabitForm({ mode, initial, onSubmit, children }: Props) {
                   value={timeOfDay ? formatTime12(timeOfDay) : "Any time"}
                   onPress={() => setSheet("time")}
                 />
+                {timeOfDay !== null ? (
+                  <ReminderToggleRow
+                    value={reminders}
+                    onChange={setReminders}
+                    category="habit"
+                    subtitle="Get a reminder at this time on each scheduled day."
+                  />
+                ) : null}
                 <PickerRow
                   icon="calendar-outline"
                   label="Start date"
@@ -332,6 +345,7 @@ export function HabitForm({ mode, initial, onSubmit, children }: Props) {
             variant="ghost"
             onPress={() => {
               setTimeOfDay(null);
+              setReminders(false);
               setSheet(null);
             }}
           />

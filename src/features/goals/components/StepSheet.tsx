@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { DatePickerPanel } from "@/components/ui/DatePickerPanel";
 import { TimeWheelBody } from "@/components/ui/TimeWheelSheet";
 import { updateStep } from "@/db/repositories/steps";
+import { ReminderToggleRow } from "@/features/notifications/components/ReminderToggleRow";
 import { describeDate } from "@/lib/dates";
 import { formatTime12 } from "@/lib/time";
 import { ValidationError } from "@/lib/validation";
@@ -47,6 +48,7 @@ export function StepSheet({
   const [dueDate, setDueDate] = useState<string | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string | null>(null);
   const [scheduledTime, setScheduledTime] = useState<string | null>(null);
+  const [reminder, setReminder] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -60,6 +62,7 @@ export function StepSheet({
     setDueDate(step.dueDate);
     setScheduledDate(step.scheduledDate);
     setScheduledTime(step.scheduledTime);
+    setReminder(step.reminderEnabled);
   }, [visible, step?.id]);
 
   if (!shown) return null;
@@ -74,6 +77,8 @@ export function StepSheet({
         dueDate,
         scheduledDate,
         scheduledTime,
+        reminderEnabled:
+          reminder && scheduledDate !== null && scheduledTime !== null,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
         () => {},
@@ -179,6 +184,16 @@ export function StepSheet({
                 "time",
               )
             : null}
+
+          {scheduledDate !== null && scheduledTime !== null ? (
+            <ReminderToggleRow
+              value={reminder}
+              onChange={setReminder}
+              category="task"
+              subtitle="Get a reminder at this time."
+            />
+          ) : null}
+
           {error ? (
             <AppText variant="bodySmall" tone="error" accessibilityRole="alert">
               {error}
@@ -236,6 +251,7 @@ export function StepSheet({
               onPress={() => {
                 setScheduledDate(null);
                 setScheduledTime(null);
+                setReminder(false);
                 setView("form");
               }}
             />
@@ -258,6 +274,7 @@ export function StepSheet({
             variant="ghost"
             onPress={() => {
               setScheduledTime(null);
+              setReminder(false);
               setView("form");
             }}
           />

@@ -7,6 +7,7 @@ export type StepItem = {
   dueDate: string | null;
   scheduledDate: string | null;
   scheduledTime: string | null;
+  reminderEnabled: boolean;
   position: number;
   completedAt: string | null;
 };
@@ -31,4 +32,5 @@ export type StepInput = {
   dueDate?: string | null;
   scheduledDate?: string | null;
   scheduledTime?: string | null;
+  reminderEnabled?: boolean;
 };

@@ -5,6 +5,7 @@ export type InboxItem = {
   kind: string;
   title: string;
   body: string | null;
+  refId: string | null;
   createdAt: string;
   read: boolean;
 };
@@ -14,6 +15,7 @@ type Row = {
   kind: string;
   title: string;
   body: string | null;
+  ref_id: string | null;
   created_at: string;
   read_at: string | null;
 };
@@ -21,7 +23,7 @@ type Row = {
 export async function listInbox(limit = 100): Promise<InboxItem[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<Row>(
-    "SELECT id, kind, title, body, created_at, read_at FROM inbox_notifications ORDER BY created_at DESC LIMIT ?",
+    "SELECT id, kind, title, body, ref_id, created_at, read_at FROM inbox_notifications ORDER BY created_at DESC LIMIT ?",
     limit,
   );
   return rows.map((r) => ({
@@ -29,6 +31,7 @@ export async function listInbox(limit = 100): Promise<InboxItem[]> {
     kind: r.kind,
     title: r.title,
     body: r.body,
+    refId: r.ref_id,
     createdAt: r.created_at,
     read: r.read_at !== null,
   }));
@@ -57,4 +60,14 @@ export async function markAllRead(): Promise<void> {
     "UPDATE inbox_notifications SET read_at = ? WHERE read_at IS NULL",
     new Date().toISOString(),
   );
+}
+
+export async function deleteInboxItem(id: string): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("DELETE FROM inbox_notifications WHERE id = ?", id);
+}
+
+export async function clearInbox(): Promise<void> {
+  const db = await getDb();
+  await db.runAsync("DELETE FROM inbox_notifications");
 }

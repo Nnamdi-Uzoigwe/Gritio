@@ -6,6 +6,7 @@ import {
   rescheduleCommitment,
   setCommitmentDone,
 } from "@/db/repositories/today";
+import { onInboxChanged } from "@/features/notifications/inboxEvents";
 import { toDateKey } from "@/lib/dates";
 import type { HabitLevel } from "@/types/domain";
 import type { Commitment } from "@/types/today";
@@ -59,6 +60,19 @@ export function useToday() {
     });
     return () => sub.remove();
   }, [load]);
+
+  // New reminders can land in the notification center at any time (for example right after launch).
+  useEffect(
+    () =>
+      onInboxChanged(() => {
+        countUnread()
+          .then(setUnread)
+          .catch((error) =>
+            console.warn("Could not refresh unread count", error),
+          );
+      }),
+    [],
+  );
 
   const toggle = useCallback(async (item: Commitment, level?: HabitLevel) => {
     const next = !item.done;

@@ -4,7 +4,12 @@ import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { DatePickerPanel } from "@/components/ui/DatePickerPanel";
 import { TimeWheelBody } from "@/components/ui/TimeWheelSheet";
-import { createTask, updateTask } from "@/db/repositories/tasks";
+import {
+  createTask,
+  getTaskReminder,
+  updateTask,
+} from "@/db/repositories/tasks";
+import { ReminderToggleRow } from "@/features/notifications/components/ReminderToggleRow";
 import { describeDate } from "@/lib/dates";
 import { formatTime12 } from "@/lib/time";
 import { ValidationError } from "@/lib/validation";
@@ -31,7 +36,7 @@ type Props = {
   onSaved: () => void;
 };
 
-type View_ = "form" | "date" | "time";
+type SheetView = "form" | "date" | "time";
 
 export function AddTaskSheet({
   visible,
@@ -41,11 +46,12 @@ export function AddTaskSheet({
   onSaved,
 }: Props) {
   const { colors } = useTheme();
-  const [view, setView] = useState<View_>("form");
+  const [view, setView] = useState<SheetView>("form");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(today);
   const [time, setTime] = useState<string | null>(null);
+  const [reminder, setReminder] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -58,6 +64,18 @@ export function AddTaskSheet({
     setDescription(initial?.description ?? "");
     setDate(initial?.date ?? today);
     setTime(initial?.time ?? null);
+    setReminder(false);
+
+    if (!initial) return;
+    let active = true;
+    getTaskReminder(initial.id)
+      .then((value) => {
+        if (active) setReminder(value);
+      })
+      .catch((e) => console.warn("Could not read task reminder", e));
+    return () => {
+      active = false;
+    };
   }, [visible, initial, today]);
 
   const editing = Boolean(initial);
@@ -66,7 +84,13 @@ export function AddTaskSheet({
     setSaving(true);
     setError(null);
     try {
-      const input = { title, description, date, time };
+      const input = {
+        title,
+        description,
+        date,
+        time,
+        reminder: reminder && time !== null,
+      };
       if (initial) await updateTask(initial.id, input);
       else await createTask(input);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
@@ -155,6 +179,16 @@ export function AddTaskSheet({
               </AppText>
             </Pressable>
           </View>
+
+          {time !== null ? (
+            <ReminderToggleRow
+              value={reminder}
+              onChange={setReminder}
+              category="task"
+              subtitle="Get a reminder at this time."
+            />
+          ) : null}
+
           {error ? (
             <AppText variant="bodySmall" tone="error" accessibilityRole="alert">
               {error}
@@ -198,6 +232,7 @@ export function AddTaskSheet({
             variant="ghost"
             onPress={() => {
               setTime(null);
+              setReminder(false);
               setView("form");
             }}
           />

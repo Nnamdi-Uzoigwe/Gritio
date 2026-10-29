@@ -1,25 +1,32 @@
 import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
+import { HeaderIconButton } from "@/components/ui/HeaderIconButton";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
+import { SwipeableRow } from "@/components/ui/SwipeableRow";
 import {
-    listInbox,
-    markAllRead,
-    markRead,
-    type InboxItem,
+  clearInbox,
+  deleteInboxItem,
+  listInbox,
+  markAllRead,
+  markRead,
+  type InboxItem,
 } from "@/db/repositories/inbox";
+import { onInboxChanged } from "@/features/notifications/inboxEvents";
+import { reconcileNow } from "@/features/notifications/service";
 import type { IconName } from "@/lib/focusAreas";
 import { formatRelative } from "@/lib/time";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radii, spacing } from "@/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 
 const KIND_ICON: Record<string, IconName> = {
@@ -32,6 +39,7 @@ const KIND_ICON: Record<string, IconName> = {
 
 export default function NotificationsScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -42,14 +50,26 @@ export default function NotificationsScreen() {
     } catch (error) {
       console.warn("Could not load notifications", error);
       setFailed(true);
-      setItems([]);
+      setItems((prev) => prev ?? []);
     }
   }, []);
 
+  // Opening the center also picks up reminders that have gone off since the app was last open.
   useFocusEffect(
     useCallback(() => {
       load();
+      reconcileNow()
+        .then(() => load())
+        .catch((error) => console.warn("Reconcile failed", error));
     }, [load]),
+  );
+
+  useEffect(
+    () =>
+      onInboxChanged(() => {
+        load();
+      }),
+    [load],
   );
 
   const hasUnread = items?.some((i) => !i.read) ?? false;
@@ -67,6 +87,13 @@ export default function NotificationsScreen() {
     }
   };
 
+  const open = async (item: InboxItem) => {
+    await readOne(item);
+    if (item.kind === "habit" && item.refId)
+      router.push(`/habit/${item.refId}`);
+    else router.navigate("/today");
+  };
+
   const readAll = async () => {
     setItems((prev) => prev?.map((i) => ({ ...i, read: true })) ?? prev);
     try {
@@ -77,9 +104,53 @@ export default function NotificationsScreen() {
     }
   };
 
+  const remove = async (item: InboxItem) => {
+    setItems((prev) => prev?.filter((i) => i.id !== item.id) ?? prev);
+    try {
+      await deleteInboxItem(item.id);
+    } catch (error) {
+      console.warn("Could not delete notification", error);
+      load();
+    }
+  };
+
+  const confirmClear = () => {
+    Alert.alert(
+      "Clear all notifications?",
+      "This only clears this list. Your reminders and data are not affected.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear all",
+          style: "destructive",
+          onPress: async () => {
+            setItems([]);
+            try {
+              await clearInbox();
+            } catch (error) {
+              console.warn("Could not clear notifications", error);
+              load();
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <ScreenHeader title="Notifications" />
+      <ScreenHeader
+        title="Notifications"
+        right={
+          items && items.length > 0 ? (
+            <HeaderIconButton
+              icon="trash-outline"
+              label="Clear all notifications"
+              onPress={confirmClear}
+            />
+          ) : undefined
+        }
+      />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -88,7 +159,7 @@ export default function NotificationsScreen() {
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : null}
 
-        {failed ? (
+        {failed && items !== null && items.length === 0 ? (
           <View style={styles.empty}>
             <AppText variant="titleM">Could not load notifications</AppText>
             <Button label="Try again" onPress={load} />
@@ -113,7 +184,8 @@ export default function NotificationsScreen() {
               All quiet.
             </AppText>
             <AppText tone="secondary" style={styles.center}>
-              Your reminders and updates will show up here.
+              Reminders appear here after they go off, so you can look back at
+              them.
             </AppText>
           </View>
         ) : null}
@@ -123,54 +195,58 @@ export default function NotificationsScreen() {
         ) : null}
 
         {items?.map((item) => (
-          <Pressable
+          <SwipeableRow
             key={item.id}
-            accessibilityRole="button"
-            accessibilityLabel={`${item.title}. ${item.read ? "Read" : "Unread"}.`}
-            onPress={() => readOne(item)}
-            style={[
-              styles.row,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
+            postponeLabel="Delete"
+            postponeIcon="trash-outline"
+            postponeTone="warning"
+            onPostpone={() => remove(item)}
           >
-            <View
-              style={[
-                styles.rowIcon,
-                {
-                  backgroundColor: item.read
-                    ? colors.surfaceSunken
-                    : colors.primarySoft,
-                },
-              ]}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${item.title}. ${item.read ? "Read" : "Unread"}. Swipe left to delete.`}
+              onPress={() => open(item)}
+              style={styles.row}
             >
-              <Ionicons
-                name={KIND_ICON[item.kind] ?? "notifications-outline"}
-                size={20}
-                color={item.read ? colors.textMuted : colors.primaryText}
-              />
-            </View>
-            <View style={styles.rowText}>
-              <AppText
-                variant="titleM"
-                tone={item.read ? "secondary" : "default"}
-              >
-                {item.title}
-              </AppText>
-              {item.body ? (
-                <AppText variant="bodySmall" tone="secondary">
-                  {item.body}
-                </AppText>
-              ) : null}
-              <AppText variant="caption" tone="muted">
-                {formatRelative(item.createdAt)}
-              </AppText>
-            </View>
-            {!item.read ? (
               <View
-                style={[styles.unread, { backgroundColor: colors.primary }]}
-              />
-            ) : null}
-          </Pressable>
+                style={[
+                  styles.rowIcon,
+                  {
+                    backgroundColor: item.read
+                      ? colors.surfaceSunken
+                      : colors.primarySoft,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={KIND_ICON[item.kind] ?? "notifications-outline"}
+                  size={20}
+                  color={item.read ? colors.textMuted : colors.primaryText}
+                />
+              </View>
+              <View style={styles.rowText}>
+                <AppText
+                  variant="titleM"
+                  tone={item.read ? "secondary" : "default"}
+                >
+                  {item.title}
+                </AppText>
+                {item.body ? (
+                  <AppText variant="bodySmall" tone="secondary">
+                    {item.body}
+                  </AppText>
+                ) : null}
+                <AppText variant="caption" tone="muted">
+                  {formatRelative(item.createdAt)}
+                </AppText>
+              </View>
+              {!item.read ? (
+                <View
+                  style={[styles.unread, { backgroundColor: colors.primary }]}
+                />
+              ) : null}
+            </Pressable>
+          </SwipeableRow>
         ))}
       </ScrollView>
     </View>
@@ -182,7 +258,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xxxl,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   loader: { marginTop: spacing.xxxl },
   empty: { alignItems: "center", gap: spacing.md, paddingTop: spacing.xxxl },
@@ -200,7 +276,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     padding: spacing.lg,
     borderRadius: radii.lg,
-    borderWidth: 1,
   },
   rowIcon: {
     width: 40,

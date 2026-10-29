@@ -1,3 +1,4 @@
+import { requestReconcile } from "@/features/notifications/service";
 import { isValidDateKey, nowIso } from "@/lib/dates";
 import { isFocusAreaId, isGoalType } from "@/lib/goalMeta";
 import { newId } from "@/lib/ids";
@@ -232,6 +233,7 @@ export function createGoal(
   });
 }
 
+/** A renamed goal changes the text of its step reminders, so reminders are reconciled. */
 export async function updateGoal(id: string, input: GoalInput): Promise<void> {
   const data = clean(input);
   const db = await getDb();
@@ -248,6 +250,7 @@ export async function updateGoal(id: string, input: GoalInput): Promise<void> {
     nowIso(),
     id,
   );
+  requestReconcile();
 }
 
 export async function completeGoal(id: string): Promise<void> {
@@ -260,6 +263,7 @@ export async function completeGoal(id: string): Promise<void> {
     now,
     id,
   );
+  requestReconcile();
 }
 
 export async function archiveGoal(id: string): Promise<void> {
@@ -269,11 +273,12 @@ export async function archiveGoal(id: string): Promise<void> {
     nowIso(),
     id,
   );
+  requestReconcile();
 }
 
 /** Completed goal back to active. Respects the active limit. */
-export function reopenGoal(id: string): Promise<void> {
-  return runSerial(async () => {
+export async function reopenGoal(id: string): Promise<void> {
+  await runSerial(async () => {
     const db = await getDb();
     await db.withTransactionAsync(async () => {
       const goal = await db.getFirstAsync<{ status: string }>(
@@ -293,11 +298,12 @@ export function reopenGoal(id: string): Promise<void> {
       );
     });
   });
+  requestReconcile();
 }
 
 /** Archived goal comes back as completed if it was, otherwise as active (which respects the limit). */
-export function restoreGoal(id: string): Promise<void> {
-  return runSerial(async () => {
+export async function restoreGoal(id: string): Promise<void> {
+  await runSerial(async () => {
     const db = await getDb();
     await db.withTransactionAsync(async () => {
       const goal = await db.getFirstAsync<{
@@ -325,6 +331,7 @@ export function restoreGoal(id: string): Promise<void> {
       );
     });
   });
+  requestReconcile();
 }
 
 export async function getGoalDeleteSummary(
@@ -346,4 +353,5 @@ export async function deleteGoal(id: string): Promise<void> {
   await db.withTransactionAsync(async () => {
     await db.runAsync("DELETE FROM goals WHERE id = ?", id);
   });
+  requestReconcile();
 }

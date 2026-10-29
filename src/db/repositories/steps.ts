@@ -1,12 +1,13 @@
+import { requestReconcile } from "@/features/notifications/service";
 import { isValidDateKey, nowIso } from "@/lib/dates";
 import { newId } from "@/lib/ids";
 import { runSerial } from "@/lib/serial";
 import { ValidationError } from "@/lib/validation";
 import type {
-    GoalPlanView,
-    MilestoneItem,
-    StepInput,
-    StepItem,
+  GoalPlanView,
+  MilestoneItem,
+  StepInput,
+  StepItem,
 } from "@/types/steps";
 import { getDb } from "../client";
 
@@ -26,6 +27,7 @@ type StepRow = {
   due_date: string | null;
   scheduled_date: string | null;
   scheduled_time: string | null;
+  reminder_enabled: number;
   position: number;
   completed_at: string | null;
 };
@@ -42,6 +44,7 @@ function mapStep(r: StepRow): StepItem {
     dueDate: r.due_date,
     scheduledDate: r.scheduled_date,
     scheduledTime: r.scheduled_time,
+    reminderEnabled: r.reminder_enabled === 1,
     position: r.position,
     completedAt: r.completed_at,
   };
@@ -75,11 +78,26 @@ function cleanStep(input: StepInput) {
   if (scheduledTime !== null && !TIME_PATTERN.test(scheduledTime))
     throw new ValidationError("Choose a valid time.");
 
-  return { title, notes, dueDate, scheduledDate, scheduledTime };
-}
+  if (
+    input.reminderEnabled === true &&
+    (scheduledDate === null || scheduledTime === null)
+  ) {
+    throw new ValidationError("Pick a day and a time to get a reminder.");
+  }
+  const reminderEnabled =
+    input.reminderEnabled === true &&
+    scheduledDate !== null &&
+    scheduledTime !== null;
 
-// Phase 7 note: the notification service will hook into the schedule, complete and delete
-// functions below. No screen schedules reminders itself.
+  return {
+    title,
+    notes,
+    dueDate,
+    scheduledDate,
+    scheduledTime,
+    reminderEnabled,
+  };
+}
 
 export async function getGoalPlan(goalId: string): Promise<GoalPlanView> {
   const db = await getDb();
@@ -89,7 +107,7 @@ export async function getGoalPlan(goalId: string): Promise<GoalPlanView> {
       goalId,
     ),
     db.getAllAsync<StepRow>(
-      `SELECT id, goal_id, milestone_id, title, notes, due_date, scheduled_date, scheduled_time, position, completed_at
+      `SELECT id, goal_id, milestone_id, title, notes, due_date, scheduled_date, scheduled_time, reminder_enabled, position, completed_at
        FROM goal_steps WHERE goal_id = ? ORDER BY position ASC, created_at ASC`,
       goalId,
     ),
@@ -140,10 +158,11 @@ export async function updateMilestone(
   await db.runAsync("UPDATE milestones SET title = ? WHERE id = ?", clean, id);
 }
 
-/** Steps inside the milestone are removed by foreign key cascade. */
+/** Steps inside the milestone are removed by foreign key cascade, and their reminders are cancelled. */
 export async function deleteMilestone(id: string): Promise<void> {
   const db = await getDb();
   await db.runAsync("DELETE FROM milestones WHERE id = ?", id);
+  requestReconcile();
 }
 
 /** Only meaningful for a milestone with no steps, which counts as one item you tick yourself. */
@@ -205,14 +224,17 @@ export async function updateStep(id: string, input: StepInput): Promise<void> {
   const data = cleanStep(input);
   const db = await getDb();
   await db.runAsync(
-    "UPDATE goal_steps SET title = ?, notes = ?, due_date = ?, scheduled_date = ?, scheduled_time = ? WHERE id = ?",
+    `UPDATE goal_steps SET title = ?, notes = ?, due_date = ?, scheduled_date = ?, scheduled_time = ?, reminder_enabled = ?
+     WHERE id = ?`,
     data.title,
     data.notes,
     data.dueDate,
     data.scheduledDate,
     data.scheduledTime,
+    data.reminderEnabled ? 1 : 0,
     id,
   );
+  requestReconcile();
 }
 
 export async function setStepDone(id: string, done: boolean): Promise<void> {
@@ -222,6 +244,7 @@ export async function setStepDone(id: string, done: boolean): Promise<void> {
     done ? nowIso() : null,
     id,
   );
+  requestReconcile();
 }
 
 /** Puts a step on a day (it then appears on Today) or removes it from the plan with null. */
@@ -234,7 +257,7 @@ export async function scheduleStep(
   const db = await getDb();
   if (date === null) {
     await db.runAsync(
-      "UPDATE goal_steps SET scheduled_date = NULL, scheduled_time = NULL WHERE id = ?",
+      "UPDATE goal_steps SET scheduled_date = NULL, scheduled_time = NULL, reminder_enabled = 0 WHERE id = ?",
       id,
     );
   } else {
@@ -244,11 +267,13 @@ export async function scheduleStep(
       id,
     );
   }
+  requestReconcile();
 }
 
 export async function deleteStep(id: string): Promise<void> {
   const db = await getDb();
   await db.runAsync("DELETE FROM goal_steps WHERE id = ?", id);
+  requestReconcile();
 }
 
 export async function reorderMilestones(orderedIds: string[]): Promise<void> {

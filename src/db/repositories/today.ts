@@ -4,6 +4,7 @@ import type { HabitLevel } from "@/types/domain";
 import type { Commitment } from "@/types/today";
 import { getDb } from "../client";
 import { setHabitCompletion } from "./habits";
+import { scheduleStep, setStepDone } from "./steps";
 import { postponeTask, setTaskDone } from "./tasks";
 
 type TaskRow = {
@@ -125,7 +126,7 @@ export async function getTodayCommitments(date: string): Promise<Commitment[]> {
   return list.sort(compare);
 }
 
-/** Routes completion to the right table. Habit completions are unique per habit and date. */
+/** Routes completion to the right place. Each of them keeps reminders in step. */
 export async function setCommitmentDone(
   item: Commitment,
   date: string,
@@ -140,12 +141,7 @@ export async function setCommitmentDone(
     await setHabitCompletion(item.id, date, done ? (level ?? "target") : null);
     return;
   }
-  const db = await getDb();
-  await db.runAsync(
-    "UPDATE goal_steps SET completed_at = ? WHERE id = ?",
-    done ? new Date().toISOString() : null,
-    item.id,
-  );
+  await setStepDone(item.id, done);
 }
 
 export async function rescheduleCommitment(
@@ -159,12 +155,7 @@ export async function rescheduleCommitment(
     return;
   }
   if (item.source === "step") {
-    const db = await getDb();
-    await db.runAsync(
-      "UPDATE goal_steps SET scheduled_date = ? WHERE id = ?",
-      newDate,
-      item.id,
-    );
+    await scheduleStep(item.id, newDate);
     return;
   }
   throw new Error("Habit occurrences cannot be rescheduled.");

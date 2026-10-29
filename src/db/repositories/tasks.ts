@@ -1,3 +1,4 @@
+import { requestReconcile } from "@/features/notifications/service";
 import { isValidDateKey, nowIso } from "@/lib/dates";
 import { newId } from "@/lib/ids";
 import { ValidationError } from "@/lib/validation";
@@ -8,6 +9,7 @@ export type TaskInput = {
   description?: string | null;
   date: string;
   time?: string | null;
+  reminder?: boolean;
 };
 
 export type OverdueTask = {
@@ -36,11 +38,12 @@ function clean(input: TaskInput) {
   if (time !== null && !TIME_PATTERN.test(time))
     throw new ValidationError("Choose a valid time.");
 
-  return { title, description, date: input.date, time };
-}
+  if (input.reminder === true && time === null)
+    throw new ValidationError("Add a time to get a reminder.");
+  const reminder = input.reminder === true && time !== null;
 
-// Phase 7 note: the notification service will hook into create, update, complete,
-// postpone and delete below so reminders stay in sync. No screen schedules anything itself.
+  return { title, description, date: input.date, time, reminder };
+}
 
 export async function createTask(input: TaskInput): Promise<string> {
   const data = clean(input);
@@ -50,15 +53,17 @@ export async function createTask(input: TaskInput): Promise<string> {
   await db.runAsync(
     `INSERT INTO tasks
       (id, title, description, date, time, reminder_enabled, status, completed_at, goal_id, habit_id, postponed_count, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 0, 'pending', NULL, NULL, NULL, 0, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL, NULL, NULL, 0, ?, ?)`,
     id,
     data.title,
     data.description,
     data.date,
     data.time,
+    data.reminder ? 1 : 0,
     now,
     now,
   );
+  requestReconcile();
   return id;
 }
 
@@ -66,19 +71,31 @@ export async function updateTask(id: string, input: TaskInput): Promise<void> {
   const data = clean(input);
   const db = await getDb();
   await db.runAsync(
-    "UPDATE tasks SET title = ?, description = ?, date = ?, time = ?, updated_at = ? WHERE id = ?",
+    "UPDATE tasks SET title = ?, description = ?, date = ?, time = ?, reminder_enabled = ?, updated_at = ? WHERE id = ?",
     data.title,
     data.description,
     data.date,
     data.time,
+    data.reminder ? 1 : 0,
     nowIso(),
     id,
   );
+  requestReconcile();
+}
+
+export async function getTaskReminder(id: string): Promise<boolean> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ reminder_enabled: number }>(
+    "SELECT reminder_enabled FROM tasks WHERE id = ?",
+    id,
+  );
+  return row?.reminder_enabled === 1;
 }
 
 export async function deleteTask(id: string): Promise<void> {
   const db = await getDb();
   await db.runAsync("DELETE FROM tasks WHERE id = ?", id);
+  requestReconcile();
 }
 
 export async function setTaskDone(id: string, done: boolean): Promise<void> {
@@ -91,6 +108,7 @@ export async function setTaskDone(id: string, done: boolean): Promise<void> {
     now,
     id,
   );
+  requestReconcile();
 }
 
 export async function postponeTask(id: string, date: string): Promise<void> {
@@ -102,6 +120,7 @@ export async function postponeTask(id: string, date: string): Promise<void> {
     nowIso(),
     id,
   );
+  requestReconcile();
 }
 
 /** Moves unfinished tasks to a day. This is not counted as a postponement. */
@@ -124,6 +143,7 @@ export async function moveTasksToDate(
       );
     }
   });
+  requestReconcile();
 }
 
 export async function getOverdueTasks(today: string): Promise<OverdueTask[]> {

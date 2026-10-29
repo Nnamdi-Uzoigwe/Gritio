@@ -1,3 +1,4 @@
+import { requestReconcile } from "@/features/notifications/service";
 import { isValidDateKey, nowIso, toDateKey } from "@/lib/dates";
 import { isFocusAreaId } from "@/lib/goalMeta";
 import { newId } from "@/lib/ids";
@@ -18,6 +19,7 @@ type HabitRow = {
   minimum_label: string | null;
   target_label: string | null;
   reminder_time: string | null;
+  reminders_enabled: number;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
@@ -44,6 +46,7 @@ function mapHabit(
     minimumLabel: row.minimum_label,
     targetLabel: row.target_label,
     timeOfDay: row.reminder_time,
+    remindersEnabled: row.reminders_enabled === 1,
     weekdays,
     completions,
     createdAt: row.created_at,
@@ -79,6 +82,12 @@ function cleanHabit(input: HabitInput) {
   if (timeOfDay !== null && !TIME_PATTERN.test(timeOfDay))
     throw new ValidationError("Choose a valid time.");
 
+  if (input.remindersEnabled === true && timeOfDay === null) {
+    throw new ValidationError("Choose a time of day to get a reminder.");
+  }
+  const remindersEnabled =
+    input.remindersEnabled === true && timeOfDay !== null;
+
   const minimumLabel = input.minimumLabel?.trim() || null;
   const targetLabel = input.targetLabel?.trim() || null;
   if (
@@ -97,13 +106,11 @@ function cleanHabit(input: HabitInput) {
     weekdays,
     startDate: input.startDate,
     timeOfDay,
+    remindersEnabled,
     minimumLabel,
     targetLabel,
   };
 }
-
-// Phase 7 note: the notification service will hook into create, update, archive, restore, delete
-// and setHabitCompletion. No screen schedules reminders itself.
 
 async function loadHabits(where: string, param: string): Promise<HabitItem[]> {
   const db = await getDb();
@@ -164,9 +171,9 @@ export async function countActiveHabits(): Promise<number> {
 /** The limit is checked and enforced here, inside a serialized transaction, never only in the UI. */
 export async function createHabit(input: HabitInput): Promise<string> {
   const data = cleanHabit(input);
-  return runSerial(async () => {
+  const id = await runSerial(async () => {
     const db = await getDb();
-    const id = newId();
+    const newHabitId = newId();
     await db.withTransactionAsync(async () => {
       const row = await db.getFirstAsync<{ c: number }>(
         "SELECT COUNT(*) AS c FROM habits WHERE status = 'active'",
@@ -178,8 +185,8 @@ export async function createHabit(input: HabitInput): Promise<string> {
       await db.runAsync(
         `INSERT INTO habits
           (id, name, description, category, status, start_date, minimum_label, target_label, reminder_time, reminders_enabled, archived_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, NULL, ?, ?)`,
-        id,
+         VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, NULL, ?, ?)`,
+        newHabitId,
         data.name,
         data.description,
         data.category,
@@ -187,19 +194,22 @@ export async function createHabit(input: HabitInput): Promise<string> {
         data.minimumLabel,
         data.targetLabel,
         data.timeOfDay,
+        data.remindersEnabled ? 1 : 0,
         now,
         now,
       );
       for (const day of data.weekdays) {
         await db.runAsync(
           "INSERT INTO habit_schedules (habit_id, weekday) VALUES (?, ?)",
-          id,
+          newHabitId,
           day,
         );
       }
     });
-    return id;
+    return newHabitId;
   });
+  requestReconcile();
+  return id;
 }
 
 /** Schedule changes affect future days only. Past completions are never touched. */
@@ -212,7 +222,7 @@ export async function updateHabit(
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `UPDATE habits SET name = ?, description = ?, category = ?, start_date = ?, minimum_label = ?, target_label = ?,
-         reminder_time = ?, updated_at = ? WHERE id = ?`,
+         reminder_time = ?, reminders_enabled = ?, updated_at = ? WHERE id = ?`,
       data.name,
       data.description,
       data.category,
@@ -220,6 +230,7 @@ export async function updateHabit(
       data.minimumLabel,
       data.targetLabel,
       data.timeOfDay,
+      data.remindersEnabled ? 1 : 0,
       nowIso(),
       id,
     );
@@ -232,6 +243,7 @@ export async function updateHabit(
       );
     }
   });
+  requestReconcile();
 }
 
 export async function archiveHabit(id: string): Promise<void> {
@@ -243,11 +255,12 @@ export async function archiveHabit(id: string): Promise<void> {
     now,
     id,
   );
+  requestReconcile();
 }
 
 /** Archived habit back to active. Respects the active limit. History is untouched. */
-export function restoreHabit(id: string): Promise<void> {
-  return runSerial(async () => {
+export async function restoreHabit(id: string): Promise<void> {
+  await runSerial(async () => {
     const db = await getDb();
     await db.withTransactionAsync(async () => {
       const habit = await db.getFirstAsync<{ status: string }>(
@@ -267,6 +280,7 @@ export function restoreHabit(id: string): Promise<void> {
       );
     });
   });
+  requestReconcile();
 }
 
 export async function getHabitDeleteSummary(
@@ -286,11 +300,12 @@ export async function deleteHabit(id: string): Promise<void> {
   await db.withTransactionAsync(async () => {
     await db.runAsync("DELETE FROM habits WHERE id = ?", id);
   });
+  requestReconcile();
 }
 
 /**
  * Marks (or changes the level of) a completion, or removes it with level null.
- * One row per habit and date, enforced by the database.
+ * One row per habit and date, enforced by the database. Completing today cancels today's reminder.
  */
 export async function setHabitCompletion(
   habitId: string,
@@ -318,15 +333,16 @@ export async function setHabitCompletion(
       habitId,
       date,
     );
-    return;
+  } else {
+    await db.runAsync(
+      `INSERT INTO habit_completions (id, habit_id, date, level, completed_at) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(habit_id, date) DO UPDATE SET level = excluded.level`,
+      newId(),
+      habitId,
+      date,
+      level,
+      nowIso(),
+    );
   }
-  await db.runAsync(
-    `INSERT INTO habit_completions (id, habit_id, date, level, completed_at) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(habit_id, date) DO UPDATE SET level = excluded.level`,
-    newId(),
-    habitId,
-    date,
-    level,
-    nowIso(),
-  );
+  requestReconcile();
 }

@@ -2,11 +2,11 @@ import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import {
-    archiveHabit,
-    deleteHabit,
-    getHabit,
-    restoreHabit,
-    updateHabit,
+  archiveHabit,
+  deleteHabit,
+  getHabit,
+  restoreHabit,
+  updateHabit,
 } from "@/db/repositories/habits";
 import { HabitForm } from "@/features/habits/components/HabitForm";
 import { confirmDeleteHabit } from "@/features/habits/confirmDelete";
@@ -91,6 +91,7 @@ export default function EditHabitScreen() {
         weekdays: habit.weekdays,
         startDate: habit.startDate,
         timeOfDay: habit.timeOfDay,
+        remindersEnabled: habit.remindersEnabled,
         minimumLabel: habit.minimumLabel,
         targetLabel: habit.targetLabel,
       }}

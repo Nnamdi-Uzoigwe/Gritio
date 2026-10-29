@@ -2,12 +2,14 @@ import { getDb } from "@/db/client";
 import { loadPlannerData } from "@/db/repositories/notificationSnapshot";
 import { addDays, toDateKey } from "@/lib/dates";
 import { runSerial } from "@/lib/serial";
+import { parseTime } from "@/lib/time";
 import * as Notifications from "expo-notifications";
 import { NOTIFICATION_CONFIG } from "./config";
+import { emitInboxChanged } from "./inboxEvents";
 import {
-    ensureAndroidChannel,
-    getNotificationPermission,
-    type PermissionState,
+  ensureAndroidChannel,
+  getNotificationPermission,
+  type PermissionState,
 } from "./permissions";
 import { planNotifications, type PlannedNotification } from "./planner";
 import { loadNotificationPrefs } from "./prefs";
@@ -21,10 +23,24 @@ export type ReconcileResult = {
 
 type RecordRow = {
   id: string;
+  kind: string;
+  ref_id: string | null;
   fire_at: string;
+  created_at: string;
   title: string | null;
   body: string | null;
 };
+
+type InboxCandidate = {
+  id: string;
+  kind: string;
+  refId: string | null;
+  title: string;
+  body: string | null;
+  at: string;
+};
+
+const INBOX_LIMIT = 100;
 
 async function schedule(p: PlannedNotification): Promise<void> {
   const channelId = NOTIFICATION_CONFIG.channelId;
@@ -52,6 +68,57 @@ async function schedule(p: PlannedNotification): Promise<void> {
     },
     trigger,
   });
+}
+
+function latestOccurrence(time: string, nowMs: number): number | null {
+  const { hour, minute } = parseTime(time);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  const d = new Date(nowMs);
+  d.setHours(hour, minute, 0, 0);
+  if (d.getTime() > nowMs) d.setDate(d.getDate() - 1);
+  return d.getTime();
+}
+
+/**
+ * Reminders whose time has passed become entries in the notification center.
+ * One-off reminders import once their time has passed. Daily ones import their latest occurrence,
+ * but only if it happened after the reminder was last scheduled, so changing a time never invents history.
+ * Entries have deterministic ids, so importing twice is harmless.
+ */
+function collectDelivered(
+  records: RecordRow[],
+  nowMs: number,
+): InboxCandidate[] {
+  const out: InboxCandidate[] = [];
+  for (const r of records) {
+    if (!r.title) continue;
+    if (r.fire_at.startsWith("daily@")) {
+      const at = latestOccurrence(r.fire_at.slice(6), nowMs);
+      const scheduledAt = Date.parse(r.created_at);
+      if (at === null || Number.isNaN(scheduledAt) || at <= scheduledAt)
+        continue;
+      out.push({
+        id: `${r.id}@${toDateKey(new Date(at))}`,
+        kind: r.kind,
+        refId: r.ref_id,
+        title: r.title,
+        body: r.body,
+        at: new Date(at).toISOString(),
+      });
+    } else {
+      const at = Date.parse(r.fire_at);
+      if (Number.isNaN(at) || at > nowMs) continue;
+      out.push({
+        id: `${r.id}@${r.fire_at}`,
+        kind: r.kind,
+        refId: r.ref_id,
+        title: r.title,
+        body: r.body,
+        at: r.fire_at,
+      });
+    }
+  }
+  return out;
 }
 
 /**
@@ -85,7 +152,7 @@ export function reconcileNow(): Promise<ReconcileResult> {
     ).filter((r) => r.identifier.startsWith(prefix));
     const osIds = new Set(osOurs.map((r) => r.identifier));
     const records = await db.getAllAsync<RecordRow>(
-      "SELECT id, fire_at, title, body FROM scheduled_notifications",
+      "SELECT id, kind, ref_id, fire_at, created_at, title, body FROM scheduled_notifications",
     );
     const recordById = new Map(records.map((r) => [r.id, r]));
 
@@ -122,35 +189,62 @@ export function reconcileNow(): Promise<ReconcileResult> {
       }
     }
 
-    // Phase 7b: records whose time has passed are imported into the notification center before this cleanup.
+    // Reminders that have passed go to the notification center before their records are cleaned up.
+    // Nothing is imported without permission, because nothing could have been delivered.
+    const delivered =
+      permission === "granted" ? collectDelivered(records, Date.now()) : [];
     const orphanIds = records
       .filter((r) => !desiredById.has(r.id))
       .map((r) => r.id);
-    const nowIso = new Date().toISOString();
+    const stamp = new Date().toISOString();
+    let inserted = 0;
+
     await db.withTransactionAsync(async () => {
+      for (const c of delivered) {
+        const result = await db.runAsync(
+          `INSERT OR IGNORE INTO inbox_notifications (id, kind, title, body, ref_id, created_at, read_at)
+           VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+          c.id,
+          c.kind,
+          c.title,
+          c.body,
+          c.refId,
+          c.at,
+        );
+        inserted += result.changes;
+      }
+      if (inserted > 0) {
+        await db.runAsync(
+          `DELETE FROM inbox_notifications WHERE id NOT IN
+             (SELECT id FROM inbox_notifications ORDER BY created_at DESC LIMIT ${INBOX_LIMIT})`,
+        );
+      }
       for (const id of orphanIds)
         await db.runAsync(
           "DELETE FROM scheduled_notifications WHERE id = ?",
           id,
         );
       for (const p of written) {
+        // created_at doubles as "scheduled at", so it is refreshed whenever a reminder changes.
         await db.runAsync(
           `INSERT INTO scheduled_notifications (id, os_identifier, kind, ref_id, fire_at, created_at, title, body)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET os_identifier = excluded.os_identifier, kind = excluded.kind,
-             ref_id = excluded.ref_id, fire_at = excluded.fire_at, title = excluded.title, body = excluded.body`,
+             ref_id = excluded.ref_id, fire_at = excluded.fire_at, created_at = excluded.created_at,
+             title = excluded.title, body = excluded.body`,
           p.id,
           p.id,
           p.kind,
           p.refId,
           p.fireKey,
-          nowIso,
+          stamp,
           p.title,
           p.body,
         );
       }
     });
 
+    if (inserted > 0) emitInboxChanged();
     return { permission, scheduled: written.length, cancelled, kept };
   });
 }

@@ -11,8 +11,9 @@ export type HabitItem = {
   startDate: string;
   minimumLabel: string | null;
   targetLabel: string | null;
-  /** Preferred time of day, "HH:mm". Orders the habit on Today and drives reminders in Phase 7. */
+  /** Preferred time of day, "HH:mm". Orders the habit on Today and is the reminder time. */
   timeOfDay: string | null;
+  remindersEnabled: boolean;
   weekdays: number[];
   completions: HabitCompletion[];
   createdAt: string;
@@ -27,6 +28,7 @@ export type HabitInput = {
   weekdays: number[];
   startDate: string;
   timeOfDay?: string | null;
+  remindersEnabled?: boolean;
   minimumLabel?: string | null;
   targetLabel?: string | null;
 };
