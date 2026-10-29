@@ -152,8 +152,7 @@ export default function HabitsTab() {
     }
   };
 
-  // Phase 6b: tapping a habit opens its page with history. For now it opens the editor.
-  const open = (habit: HabitItem) => router.push(`/habit/edit/${habit.id}`);
+  const open = (habit: HabitItem) => router.push(`/habit/${habit.id}`);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
