@@ -171,6 +171,14 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX idx_inbox_created ON inbox_notifications(created_at);
     `,
   },
+  {
+    version: 2,
+    name: "notification titles and bodies",
+    sql: `
+      ALTER TABLE scheduled_notifications ADD COLUMN title TEXT;
+      ALTER TABLE scheduled_notifications ADD COLUMN body TEXT;
+    `,
+  },
 ];
 
 export async function runMigrations(db: SQLiteDatabase): Promise<void> {

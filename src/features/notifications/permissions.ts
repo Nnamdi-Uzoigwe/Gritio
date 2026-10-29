@@ -1,42 +1,58 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import { NOTIFICATION_CONFIG } from "./config";
 
 export type PermissionState = "granted" | "denied" | "undetermined";
+export type PermissionInfo = { state: PermissionState; canAskAgain: boolean };
 
-function toState(
+function toInfo(
   result: Notifications.NotificationPermissionsStatus,
-): PermissionState {
-  if (result.granted) return "granted";
+): PermissionInfo {
+  if (result.granted) return { state: "granted", canAskAgain: true };
   if (
     result.status === Notifications.PermissionStatus.UNDETERMINED &&
     result.canAskAgain
   ) {
-    return "undetermined";
+    return { state: "undetermined", canAskAgain: true };
   }
-  return "denied";
+  return { state: "denied", canAskAgain: result.canAskAgain };
+}
+
+/** Android 13+ needs a channel to exist before the prompt can appear and before anything is scheduled. */
+export async function ensureAndroidChannel(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  await Notifications.setNotificationChannelAsync(
+    NOTIFICATION_CONFIG.channelId,
+    {
+      name: "Reminders",
+      importance: Notifications.AndroidImportance.DEFAULT,
+    },
+  );
+}
+
+export async function getPermissionInfo(): Promise<PermissionInfo> {
+  try {
+    return toInfo(await Notifications.getPermissionsAsync());
+  } catch (error) {
+    console.warn("Could not read notification permission", error);
+    return { state: "undetermined", canAskAgain: true };
+  }
+}
+
+export async function requestPermission(): Promise<PermissionInfo> {
+  try {
+    await ensureAndroidChannel();
+    return toInfo(await Notifications.requestPermissionsAsync());
+  } catch (error) {
+    console.warn("Could not request notification permission", error);
+    return { state: "undetermined", canAskAgain: true };
+  }
 }
 
 export async function getNotificationPermission(): Promise<PermissionState> {
-  try {
-    return toState(await Notifications.getPermissionsAsync());
-  } catch (error) {
-    console.warn("Could not read notification permission", error);
-    return "undetermined";
-  }
+  return (await getPermissionInfo()).state;
 }
 
 export async function requestNotificationPermission(): Promise<PermissionState> {
-  try {
-    if (Platform.OS === "android") {
-      // Android 13+ needs a channel to exist before the prompt can appear.
-      await Notifications.setNotificationChannelAsync("default", {
-        name: "Reminders",
-        importance: Notifications.AndroidImportance.DEFAULT,
-      });
-    }
-    return toState(await Notifications.requestPermissionsAsync());
-  } catch (error) {
-    console.warn("Could not request notification permission", error);
-    return "undetermined";
-  }
+  return (await requestPermission()).state;
 }

@@ -33,6 +33,10 @@
           "imageWidth": 76
         }
       ],
+      [
+        "expo-notifications",
+        { "color": "#C49A45", "defaultChannel": "default" }
+      ],
       "expo-sqlite",
       "expo-sharing"
     ],

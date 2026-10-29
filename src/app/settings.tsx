@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/Button";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import {
-    deleteSetting,
-    getSetting,
-    setSetting,
+  deleteSetting,
+  getSetting,
+  setSetting,
 } from "@/db/repositories/settings";
 import { useOnboardingStore } from "@/features/onboarding/store";
 import { useTheme } from "@/theme/ThemeProvider";
@@ -163,6 +163,14 @@ export default function SettingsScreen() {
 
         <Group label="PERSONALIZATION">
           <Row title="Name" value={name ?? "Not set"} onPress={openEdit} last />
+        </Group>
+
+        <Group label="NOTIFICATIONS">
+          <Row
+            title="Reminders"
+            onPress={() => router.push("/notification-settings")}
+            last
+          />
         </Group>
 
         <Group label="ABOUT">

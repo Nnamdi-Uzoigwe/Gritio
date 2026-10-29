@@ -1,4 +1,5 @@
 import { getDb } from "@/db/client";
+import { requestReconcile } from "@/features/notifications/service";
 import type { SettingKey } from "@/types/domain";
 import type { SQLiteDatabase } from "expo-sqlite";
 import type { OnboardingAnswers } from "./store";
@@ -46,4 +47,5 @@ export async function completeOnboarding(
     }
     await put(db, "onboarding_completed", "1");
   });
+  requestReconcile();
 }

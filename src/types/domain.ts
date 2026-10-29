@@ -27,5 +27,8 @@ export type SettingKey =
   | "reflection_time"
   | "planning_reminder_enabled"
   | "reflection_reminder_enabled"
+  | "notifications_enabled"
+  | "habit_reminders_enabled"
+  | "task_reminders_enabled"
   | "theme_mode"
   | "app_lock_enabled";
