@@ -59,8 +59,11 @@ function NotificationBridge() {
     handled.current = id;
     if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER)
       return;
-    // Every reminder kind lands on Today for now. Phase 8 sends reflection reminders to the reflection screen.
-    router.navigate("/today");
+
+    const data = response.notification.request.content.data as
+      | { kind?: string }
+      | undefined;
+    router.navigate(data?.kind === "reflection" ? "/reflection" : "/today");
   }, [response, router]);
 
   return null;

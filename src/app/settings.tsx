@@ -162,7 +162,13 @@ export default function SettingsScreen() {
         </Group>
 
         <Group label="PERSONALIZATION">
-          <Row title="Name" value={name ?? "Not set"} onPress={openEdit} last />
+          <Row title="Name" value={name ?? "Not set"} onPress={openEdit} />
+          <Row title="Personal rules" onPress={() => router.push("/rules")} />
+          <Row
+            title="Reflection history"
+            onPress={() => router.push("/reflection-history")}
+            last
+          />
         </Group>
 
         <Group label="NOTIFICATIONS">

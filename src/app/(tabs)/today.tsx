@@ -11,7 +11,9 @@ import {
 import { CommitmentRow } from "@/features/today/components/CommitmentRow";
 import { EmptyDay } from "@/features/today/components/EmptyDay";
 import { PlanReviewSheet } from "@/features/today/components/PlanReviewSheet";
+import { ReflectRow } from "@/features/today/components/ReflectRow";
 import { RescheduleSheet } from "@/features/today/components/RescheduleSheet";
+import { RuleOfDay } from "@/features/today/components/RuleOfDay";
 import { TaskDetailsSheet } from "@/features/today/components/TaskDetailsSheet";
 import { useToday } from "@/features/today/useToday";
 import { formatLongDate } from "@/lib/dates";
@@ -226,6 +228,8 @@ export default function TodayScreen() {
           </View>
         </View>
 
+        {status === "ready" ? <RuleOfDay /> : null}
+
         {status === "loading" ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : null}
@@ -317,6 +321,8 @@ export default function TodayScreen() {
             ) : null}
           </>
         ) : null}
+
+        {status === "ready" ? <ReflectRow today={date} /> : null}
       </ScrollView>
 
       <FloatingActionMenu

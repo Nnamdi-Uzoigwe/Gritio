@@ -91,6 +91,7 @@ export default function NotificationsScreen() {
     await readOne(item);
     if (item.kind === "habit" && item.refId)
       router.push(`/habit/${item.refId}`);
+    else if (item.kind === "reflection") router.push("/reflection");
     else router.navigate("/today");
   };
 
