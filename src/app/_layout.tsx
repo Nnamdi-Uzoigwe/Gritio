@@ -1,6 +1,7 @@
 import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
 import { getDb } from "@/db/client";
+import { CelebrationHost } from "@/features/celebrations/components/CelebrationHost";
 import {
   reconcileNow,
   requestReconcile,
@@ -81,6 +82,7 @@ function RootStack() {
           contentStyle: { backgroundColor: colors.background },
         }}
       />
+      <CelebrationHost />
     </>
   );
 }

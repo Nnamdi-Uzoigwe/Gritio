@@ -1,5 +1,6 @@
 import { getDb } from "@/db/client";
 import { loadPlannerData } from "@/db/repositories/notificationSnapshot";
+import { requestCelebrationCheck } from "@/features/celebrations/evaluate";
 import { addDays, toDateKey } from "@/lib/dates";
 import { runSerial } from "@/lib/serial";
 import { parseTime } from "@/lib/time";
@@ -251,8 +252,13 @@ export function reconcileNow(): Promise<ReconcileResult> {
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 
-/** Call this after any data or preference change. Bursts collapse into a single reconcile. */
+/**
+ * Call this after any data or preference change. Bursts collapse into a single reconcile.
+ * Every change that can matter for reminders can also be a milestone, so this also asks
+ * for a celebration check.
+ */
 export function requestReconcile(): void {
+  requestCelebrationCheck();
   if (timer) clearTimeout(timer);
   timer = setTimeout(() => {
     timer = null;

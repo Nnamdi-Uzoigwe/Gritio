@@ -1,3 +1,4 @@
+import { requestCelebrationCheck } from "@/features/celebrations/evaluate";
 import { isValidDateKey, nowIso, startOfWeek, toDateKey } from "@/lib/dates";
 import { ValidationError } from "@/lib/validation";
 import { getDb } from "../client";
@@ -42,7 +43,8 @@ export async function getReview(
 
 /**
  * Saves a weekly review. Completing one is optional, and a week without a review is never a failure.
- * The week must start on a Monday and cannot be in the future.
+ * The week must start on a Monday and cannot be in the future. Only the first save sets the completion
+ * time, so editing a review later never triggers another celebration.
  */
 export async function saveReview(
   weekStart: string,
@@ -66,7 +68,6 @@ export async function saveReview(
     throw new ValidationError("Each priority can be up to 80 characters.");
 
   const db = await getDb();
-  // Phase 9: the weekly review celebration is triggered by callers of this function.
   await db.runAsync(
     `INSERT INTO weekly_reviews (week_start, notes, next_priorities, completed_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(week_start) DO UPDATE SET notes = excluded.notes, next_priorities = excluded.next_priorities`,
@@ -75,4 +76,5 @@ export async function saveReview(
     priorities.length > 0 ? priorities.join("\n") : null,
     nowIso(),
   );
+  requestCelebrationCheck();
 }
