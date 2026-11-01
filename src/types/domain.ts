@@ -32,4 +32,5 @@ export type SettingKey =
   | "task_reminders_enabled"
   | "celebrations_enabled"
   | "theme_mode"
+  | "last_backup_at"
   | "app_lock_enabled";

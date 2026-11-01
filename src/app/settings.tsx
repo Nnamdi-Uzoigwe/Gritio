@@ -222,6 +222,14 @@ export default function SettingsScreen() {
           />
         </Group>
 
+        <Group label="DATA">
+          <Row
+            title="Data and backup"
+            onPress={() => router.push("/data-backup")}
+            last
+          />
+        </Group>
+
         <Group label="ABOUT">
           <Row
             title="Version"
