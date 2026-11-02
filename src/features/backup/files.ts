@@ -1,11 +1,12 @@
+import { withLockSuspended } from "@/features/lock/suspend";
 import * as DocumentPicker from "expo-document-picker";
 import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import {
-    BACKUP_FILE_PREFIX,
-    MAX_BACKUP_BYTES,
-    backupFileName,
-    type BackupFile,
+  BACKUP_FILE_PREFIX,
+  MAX_BACKUP_BYTES,
+  backupFileName,
+  type BackupFile,
 } from "./format";
 
 export class BackupFileError extends Error {
@@ -48,20 +49,24 @@ export async function shareBackupFile(uri: string): Promise<void> {
   if (!(await Sharing.isAvailableAsync())) {
     throw new BackupFileError("Sharing is not available on this device.");
   }
-  await Sharing.shareAsync(uri, {
-    mimeType: "application/json",
-    dialogTitle: "Save your Gritio backup",
-    UTI: "public.json",
-  });
+  await withLockSuspended(() =>
+    Sharing.shareAsync(uri, {
+      mimeType: "application/json",
+      dialogTitle: "Save your Gritio backup",
+      UTI: "public.json",
+    }),
+  );
 }
 
 /** Lets the person pick a file and returns its text, or null if they cancelled. */
 export async function pickBackupText(): Promise<string | null> {
-  const result = await DocumentPicker.getDocumentAsync({
-    type: "*/*",
-    copyToCacheDirectory: true,
-    multiple: false,
-  });
+  const result = await withLockSuspended(() =>
+    DocumentPicker.getDocumentAsync({
+      type: "*/*",
+      copyToCacheDirectory: true,
+      multiple: false,
+    }),
+  );
   if (result.canceled) return null;
 
   const asset = result.assets[0];

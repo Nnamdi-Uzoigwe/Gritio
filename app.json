@@ -38,7 +38,11 @@
         { "color": "#C49A45", "defaultChannel": "default" }
       ],
       "expo-sqlite",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-local-authentication",
+        { "faceIDPermission": "Allow Gritio to use Face ID to unlock the app." }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

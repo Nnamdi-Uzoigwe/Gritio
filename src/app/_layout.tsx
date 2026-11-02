@@ -2,6 +2,7 @@ import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
 import { getDb } from "@/db/client";
 import { CelebrationHost } from "@/features/celebrations/components/CelebrationHost";
+import { LockGate } from "@/features/lock/components/LockGate";
 import {
   reconcileNow,
   requestReconcile,
@@ -83,6 +84,7 @@ function RootStack() {
         }}
       />
       <CelebrationHost />
+      <LockGate />
     </>
   );
 }

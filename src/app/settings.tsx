@@ -4,6 +4,7 @@ import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { LINKS } from "@/config/links";
 import {
   deleteSetting,
   getSetting,
@@ -11,6 +12,12 @@ import {
 } from "@/db/repositories/settings";
 import { previewCelebration } from "@/features/celebrations/evaluate";
 import type { CelebrationKind } from "@/features/celebrations/store";
+import {
+  authenticate,
+  getLockSupport,
+  type LockSupport,
+} from "@/features/lock/auth";
+import { useLockStore } from "@/features/lock/store";
 import { useOnboardingStore } from "@/features/onboarding/store";
 import { useTheme } from "@/theme/ThemeProvider";
 import { radii, spacing, touch } from "@/theme/tokens";
@@ -18,8 +25,17 @@ import type { ThemeMode } from "@/types/domain";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useFocusEffect, useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import {
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from "react-native";
 
 const THEME_OPTIONS: ReadonlyArray<{ value: ThemeMode; label: string }> = [
   { value: "light", label: "Light" },
@@ -34,6 +50,14 @@ const PREVIEWS: ReadonlyArray<{ kind: CelebrationKind; label: string }> = [
   { kind: "streak", label: "Preview: habit streak" },
   { kind: "review", label: "Preview: weekly review" },
 ];
+
+function lockHint(support: LockSupport | null): string {
+  if (support === "not_enrolled")
+    return "Set up a screen lock or biometrics in your phone settings to use this.";
+  if (support === "unsupported")
+    return "App Lock is not available on this phone.";
+  return "Ask for your biometrics or phone passcode when Gritio opens, and after it has been in the background for a minute.";
+}
 
 function Group({
   label,
@@ -107,8 +131,11 @@ function Row({
 export default function SettingsScreen() {
   const { colors, mode, setMode } = useTheme();
   const router = useRouter();
+  const lockEnabled = useLockStore((s) => s.enabled);
   const [name, setName] = useState<string | null>(null);
   const [celebrations, setCelebrations] = useState(true);
+  const [lockSupport, setLockSupport] = useState<LockSupport | null>(null);
+  const [lockBusy, setLockBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -122,6 +149,7 @@ export default function SettingsScreen() {
       getSetting("celebrations_enabled")
         .then((value) => setCelebrations(value !== "0"))
         .catch((e) => console.warn("Could not read celebrations setting", e));
+      getLockSupport().then(setLockSupport);
     }, []),
   );
 
@@ -132,6 +160,79 @@ export default function SettingsScreen() {
     } catch (e) {
       console.warn("Could not save celebrations setting", e);
       setCelebrations(!value);
+    }
+  };
+
+  const toggleLock = async (value: boolean) => {
+    if (lockBusy) return;
+
+    if (!value) {
+      try {
+        await setSetting("app_lock_enabled", "0");
+        useLockStore.getState().setEnabled(false);
+      } catch (e) {
+        console.warn("Could not turn off App Lock", e);
+        Alert.alert(
+          "Something went wrong",
+          "App Lock was not changed. Please try again.",
+        );
+      }
+      return;
+    }
+
+    setLockBusy(true);
+    try {
+      const support = await getLockSupport();
+      setLockSupport(support);
+
+      if (support === "unsupported") {
+        Alert.alert(
+          "App Lock is not available",
+          "This phone cannot provide a screen lock or biometrics for Gritio.",
+        );
+        return;
+      }
+      if (support === "not_enrolled") {
+        Alert.alert(
+          "Set up a screen lock first",
+          "App Lock uses your phone's biometrics or passcode. Set one up in your phone settings, then come back.",
+          [
+            { text: "Not now", style: "cancel" },
+            {
+              text: "Open settings",
+              onPress: () => {
+                Linking.openSettings().catch(() => {});
+              },
+            },
+          ],
+        );
+        return;
+      }
+
+      // Prove it works before turning it on, so you can always get back in.
+      const outcome = await authenticate(
+        "Confirm it is you to turn on App Lock",
+      );
+      if (!outcome.ok) {
+        Alert.alert(
+          "App Lock was not turned on",
+          outcome.reason === "cancelled"
+            ? "You cancelled, so nothing changed."
+            : "That did not work, so nothing changed. Please try again.",
+        );
+        return;
+      }
+
+      await setSetting("app_lock_enabled", "1");
+      useLockStore.getState().setEnabled(true); // locked stays off until the next lock
+    } catch (e) {
+      console.warn("Could not turn on App Lock", e);
+      Alert.alert(
+        "Something went wrong",
+        "App Lock was not turned on. Please try again.",
+      );
+    } finally {
+      setLockBusy(false);
     }
   };
 
@@ -164,6 +265,9 @@ export default function SettingsScreen() {
     useOnboardingStore.getState().reset();
     router.replace("/");
   };
+
+  const hasPolicy = LINKS.privacyPolicyUrl.length > 0;
+  const hasSupport = LINKS.supportEmail.length > 0;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -222,6 +326,31 @@ export default function SettingsScreen() {
           />
         </Group>
 
+        <Group label="PRIVACY AND SECURITY">
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleText}>
+              <AppText variant="titleM">App Lock</AppText>
+              <AppText variant="bodySmall" tone="secondary">
+                {lockHint(lockSupport)}
+              </AppText>
+              <AppText variant="caption" tone="muted">
+                A privacy feature only. It is not an account, and it does not
+                back up your data.
+              </AppText>
+            </View>
+            <Switch
+              value={lockEnabled}
+              onValueChange={toggleLock}
+              disabled={
+                lockBusy || (!lockEnabled && lockSupport === "unsupported")
+              }
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
+              accessibilityLabel="App Lock"
+            />
+          </View>
+        </Group>
+
         <Group label="DATA">
           <Row
             title="Data and backup"
@@ -234,8 +363,40 @@ export default function SettingsScreen() {
           <Row
             title="Version"
             value={Constants.expoConfig?.version ?? "1.0.0"}
-            last
           />
+          <Row
+            title="Privacy"
+            onPress={() => router.push("/privacy")}
+            last={!hasPolicy && !hasSupport}
+          />
+          {hasPolicy ? (
+            <Row
+              title="Privacy policy"
+              onPress={() => {
+                WebBrowser.openBrowserAsync(LINKS.privacyPolicyUrl).catch((e) =>
+                  console.warn("Could not open the policy", e),
+                );
+              }}
+              last={!hasSupport}
+            />
+          ) : null}
+          {hasSupport ? (
+            <Row
+              title="Contact support"
+              value={LINKS.supportEmail}
+              onPress={() => {
+                Linking.openURL(
+                  `mailto:${LINKS.supportEmail}?subject=${encodeURIComponent("Gritio support")}`,
+                ).catch(() =>
+                  Alert.alert(
+                    "Could not open your email app",
+                    `You can write to ${LINKS.supportEmail}.`,
+                  ),
+                );
+              }}
+              last
+            />
+          ) : null}
         </Group>
 
         {__DEV__ ? (
