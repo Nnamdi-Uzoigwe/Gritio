@@ -7,9 +7,9 @@ import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -94,7 +94,11 @@ export function AppTabBar({ routes, activeIndex, onPress }: Props) {
               size={22}
               color={focused ? colors.primaryText : colors.textMuted}
             />
-            <AppText variant="caption" tone={focused ? "accent" : "muted"}>
+            <AppText
+              variant="caption"
+              tone={focused ? "accent" : "muted"}
+              fixed
+            >
               {meta.label}
             </AppText>
           </Pressable>

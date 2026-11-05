@@ -1,5 +1,5 @@
 import { useTheme } from "@/theme/ThemeProvider";
-import { spacing, typography } from "@/theme/tokens";
+import { spacing, textScaleCaps, touch, typography } from "@/theme/tokens";
 import { useState } from "react";
 import { StyleSheet, TextInput, type TextInputProps } from "react-native";
 import type { TextVariant } from "./AppText";
@@ -18,10 +18,10 @@ export function AppTextInput({
 
   return (
     <TextInput
-      maxFontSizeMultiplier={1.4}
+      maxFontSizeMultiplier={textScaleCaps[variant]}
       placeholderTextColor={colors.textMuted}
-      selectionColor={colors.primary}
-      cursorColor={colors.primary}
+      selectionColor={colors.primaryGraphic}
+      cursorColor={colors.primaryGraphic}
       onFocus={(e) => {
         setFocused(true);
         onFocus?.(e);
@@ -35,7 +35,9 @@ export function AppTextInput({
         styles.input,
         {
           color: colors.text,
-          borderBottomColor: focused ? colors.primary : colors.border,
+          borderBottomColor: focused
+            ? colors.primaryGraphic
+            : colors.inputBorder,
         },
         style,
       ]}
@@ -45,5 +47,9 @@ export function AppTextInput({
 }
 
 const styles = StyleSheet.create({
-  input: { paddingVertical: spacing.md, borderBottomWidth: 2 },
+  input: {
+    paddingVertical: spacing.md,
+    borderBottomWidth: 2,
+    minHeight: touch.minTarget,
+  },
 });

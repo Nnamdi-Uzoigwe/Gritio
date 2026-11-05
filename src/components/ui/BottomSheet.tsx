@@ -7,6 +7,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
@@ -28,6 +29,8 @@ import { AppText } from "./AppText";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const EXIT_MS = 220;
+/** Roughly the height of the handle and title, so the scrolling body knows how much room it has. */
+const HEADER_ALLOWANCE = 96;
 
 function useKeyboardHeight(): number {
   const [height, setHeight] = useState(0);
@@ -66,6 +69,7 @@ function SheetContent({
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
   const translateY = useSharedValue(SCREEN_HEIGHT);
+  const [contentHeight, setContentHeight] = useState(0);
 
   useEffect(() => {
     if (visible) {
@@ -107,6 +111,10 @@ function SheetContent({
     keyboardHeight > 0
       ? keyboardHeight + spacing.md
       : insets.bottom + spacing.lg;
+  const maxBody = Math.max(
+    160,
+    SCREEN_HEIGHT * 0.92 - HEADER_ALLOWANCE - bottomPad,
+  );
 
   return (
     <View style={styles.fill}>
@@ -125,6 +133,8 @@ function SheetContent({
         accessibilityLabel="Close"
       />
       <Animated.View
+        accessibilityViewIsModal
+        onAccessibilityEscape={onClose}
         style={[
           styles.sheet,
           { backgroundColor: colors.surface, paddingBottom: bottomPad },
@@ -133,11 +143,29 @@ function SheetContent({
       >
         <GestureDetector gesture={pan}>
           <View style={styles.header}>
-            <View style={[styles.handle, { backgroundColor: colors.border }]} />
-            {title ? <AppText variant="titleL">{title}</AppText> : null}
+            <View
+              style={[styles.handle, { backgroundColor: colors.inputBorder }]}
+              importantForAccessibility="no"
+            />
+            {title ? (
+              <AppText variant="titleL" heading>
+                {title}
+              </AppText>
+            ) : null}
           </View>
         </GestureDetector>
-        {children}
+        {/* Scrolls only when the content is taller than the room available, for example at large text sizes. */}
+        <ScrollView
+          style={{ maxHeight: maxBody }}
+          scrollEnabled={contentHeight > maxBody}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          onContentSizeChange={(_, h) => setContentHeight(h)}
+        >
+          {children}
+        </ScrollView>
       </Animated.View>
     </View>
   );

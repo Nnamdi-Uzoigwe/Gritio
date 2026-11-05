@@ -1,6 +1,6 @@
 import type { IconName } from "@/lib/focusAreas";
 import { useTheme } from "@/theme/ThemeProvider";
-import { radii, spacing } from "@/theme/tokens";
+import { radii, spacing, touch } from "@/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Pressable, StyleSheet, View } from "react-native";
@@ -15,7 +15,7 @@ type Props = {
   accessibilityLabel?: string;
 };
 
-/** Static when no onPress is given (a label), pressable otherwise (an option). */
+/** Static when no onPress is given (a label), pressable otherwise (an option, at least 44 tall). */
 export function Chip({
   label,
   icon,
@@ -38,9 +38,10 @@ export function Chip({
         />
       ) : null}
       <AppText
-        variant="caption"
+        variant={interactive ? "label" : "caption"}
         tone={selected ? "onPrimary" : "secondary"}
-        numberOfLines={1}
+        fixed={!interactive}
+        numberOfLines={interactive ? undefined : 1}
         style={styles.label}
       >
         {label}
@@ -87,7 +88,17 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     alignSelf: "flex-start",
   },
-  static: { paddingHorizontal: spacing.sm, height: 24, maxWidth: 200 },
-  interactive: { paddingHorizontal: spacing.lg, height: 40 },
+  static: {
+    minHeight: 24,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    maxWidth: 220,
+  },
+  interactive: {
+    minHeight: touch.minInteractive,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    maxWidth: "100%",
+  },
   label: { flexShrink: 1 },
 });

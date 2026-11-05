@@ -27,7 +27,7 @@ export function ScreenHeader({ title, right }: Props) {
       >
         <Ionicons name="chevron-back" size={26} color={colors.text} />
       </Pressable>
-      <AppText variant="displayM" style={styles.title}>
+      <AppText variant="displayM" heading style={styles.title}>
         {title}
       </AppText>
       {right}

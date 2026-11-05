@@ -1,3 +1,4 @@
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
 import { getDb } from "@/db/client";
@@ -38,6 +39,14 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+/** Expo Router shows this instead of a blank screen if any screen throws while rendering. */
+export function ErrorBoundary(props: {
+  error: Error;
+  retry: () => Promise<unknown>;
+}) {
+  return <AppErrorBoundary {...props} />;
+}
 
 /** Sends the person to the right place when they tap a reminder while the app is already running. */
 function NotificationBridge() {
@@ -93,7 +102,9 @@ function DatabaseError({ onRetry }: { onRetry: () => void }) {
   const { colors } = useTheme();
   return (
     <View style={[styles.errorWrap, { backgroundColor: colors.background }]}>
-      <AppText variant="displayM">Something went wrong</AppText>
+      <AppText variant="displayM" heading>
+        Something went wrong
+      </AppText>
       <AppText tone="secondary" style={styles.errorText}>
         Gritio could not open its local data. Your data has not been touched.
         Please try again.

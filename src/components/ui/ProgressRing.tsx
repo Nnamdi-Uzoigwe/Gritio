@@ -1,10 +1,11 @@
+import { useTheme } from "@/theme/ThemeProvider";
 import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
-    Easing,
-    useAnimatedProps,
-    useSharedValue,
-    withTiming,
+  Easing,
+  useAnimatedProps,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 
@@ -27,6 +28,8 @@ export function ProgressRing({
   trackColor,
   children,
 }: Props) {
+  const { colors } = useTheme();
+  const stroke = color === colors.primary ? colors.primaryGraphic : color;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const value = useSharedValue(0);
@@ -58,7 +61,7 @@ export function ProgressRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={color}
+          stroke={stroke}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           fill="none"

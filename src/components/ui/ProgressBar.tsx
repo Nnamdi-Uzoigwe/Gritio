@@ -1,10 +1,11 @@
+import { useTheme } from "@/theme/ThemeProvider";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import Animated, {
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 
 type Props = {
@@ -20,6 +21,8 @@ export function ProgressBar({
   trackColor,
   height = 6,
 }: Props) {
+  const { colors } = useTheme();
+  const fill = color === colors.primary ? colors.primaryGraphic : color;
   const [width, setWidth] = useState(0);
   const value = useSharedValue(0);
 
@@ -44,7 +47,7 @@ export function ProgressBar({
     >
       <Animated.View
         style={[
-          { height, borderRadius: height / 2, backgroundColor: color },
+          { height, borderRadius: height / 2, backgroundColor: fill },
           fillStyle,
         ]}
       />

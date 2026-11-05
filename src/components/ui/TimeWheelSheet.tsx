@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type AccessibilityActionEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
@@ -23,20 +24,21 @@ const MINUTES = Array.from({ length: 12 }, (_, i) =>
 const PERIODS = ["AM", "PM"];
 
 type WheelProps = {
+  label: string;
   data: string[];
   index: number;
   onChange: (index: number) => void;
   width: number;
 };
 
-function WheelColumn({ data, index, onChange, width }: WheelProps) {
+function WheelColumn({ label, data, index, onChange, width }: WheelProps) {
   const { colors } = useTheme();
   const ref = useRef<ScrollView>(null);
   const [live, setLive] = useState(index);
   const lastIndex = useRef(index);
 
-  const indexFromOffset = (y: number) =>
-    Math.max(0, Math.min(data.length - 1, Math.round(y / ITEM_HEIGHT)));
+  const clamp = (i: number) => Math.max(0, Math.min(data.length - 1, i));
+  const indexFromOffset = (y: number) => clamp(Math.round(y / ITEM_HEIGHT));
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const i = indexFromOffset(e.nativeEvent.contentOffset.y);
@@ -51,8 +53,33 @@ function WheelColumn({ data, index, onChange, width }: WheelProps) {
     onChange(indexFromOffset(e.nativeEvent.contentOffset.y));
   };
 
+  // Screen reader users move the wheel one step at a time.
+  const step = (delta: number) => {
+    const next = clamp(lastIndex.current + delta);
+    if (next === lastIndex.current) return;
+    lastIndex.current = next;
+    setLive(next);
+    ref.current?.scrollTo({ y: next * ITEM_HEIGHT, animated: true });
+    Haptics.selectionAsync().catch(() => {});
+    onChange(next);
+  };
+
   return (
-    <View style={{ width, height: ITEM_HEIGHT * VISIBLE_ROWS }}>
+    <View
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={label}
+      accessibilityValue={{ text: data[live] }}
+      accessibilityActions={[
+        { name: "increment", label: "Next" },
+        { name: "decrement", label: "Previous" },
+      ]}
+      onAccessibilityAction={(e: AccessibilityActionEvent) => {
+        if (e.nativeEvent.actionName === "increment") step(1);
+        else if (e.nativeEvent.actionName === "decrement") step(-1);
+      }}
+      style={{ width, height: ITEM_HEIGHT * VISIBLE_ROWS }}
+    >
       <View
         pointerEvents="none"
         style={[
@@ -62,6 +89,8 @@ function WheelColumn({ data, index, onChange, width }: WheelProps) {
       />
       <ScrollView
         ref={ref}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
@@ -76,13 +105,14 @@ function WheelColumn({ data, index, onChange, width }: WheelProps) {
         onScrollEndDrag={commit}
         contentContainerStyle={{ paddingVertical: ITEM_HEIGHT * 2 }}
       >
-        {data.map((label, i) => (
-          <View key={label} style={styles.item}>
+        {data.map((text, i) => (
+          <View key={text} style={styles.item}>
             <AppText
               variant={i === live ? "titleL" : "body"}
               tone={i === live ? "default" : "muted"}
+              fixed
             >
-              {label}
+              {text}
             </AppText>
           </View>
         ))}
@@ -115,18 +145,21 @@ export function TimeWheelBody({
     <View style={styles.body}>
       <View style={styles.wheels}>
         <WheelColumn
+          label="Hour"
           data={HOURS}
           index={hourIndex}
           onChange={setHourIndex}
           width={88}
         />
         <WheelColumn
+          label="Minutes"
           data={MINUTES}
           index={minuteIndex}
           onChange={setMinuteIndex}
           width={88}
         />
         <WheelColumn
+          label="AM or PM"
           data={PERIODS}
           index={periodIndex}
           onChange={setPeriodIndex}

@@ -4,7 +4,12 @@ import { motion, radii, spacing } from "@/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useCallback } from "react";
-import { StyleSheet, View } from "react-native";
+import {
+  StyleSheet,
+  View,
+  type AccessibilityActionEvent,
+  type AccessibilityActionInfo,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
@@ -19,8 +24,14 @@ const MAX_PULL = 140;
 
 type ActionTone = "success" | "warning" | "primary";
 
+type AccessibleChild = {
+  accessibilityActions?: AccessibilityActionInfo[];
+  onAccessibilityAction?: (event: AccessibilityActionEvent) => void;
+};
+
 type Props = {
-  children: React.ReactNode;
+  /** One pressable row. Its screen reader actions are extended with the swipe actions below. */
+  children: React.ReactElement<AccessibleChild>;
   /** Swipe right. Optional. */
   completeLabel?: string;
   onComplete?: () => void;
@@ -30,6 +41,9 @@ type Props = {
   postponeTone?: ActionTone;
   onPostpone?: () => void;
 };
+
+const ACTION_COMPLETE = "swipe-complete";
+const ACTION_SECONDARY = "swipe-secondary";
 
 export function SwipeableRow({
   children,
@@ -51,7 +65,7 @@ export function SwipeableRow({
       ? { bg: colors.primary, fg: colors.onPrimary }
       : postponeTone === "success"
         ? { bg: colors.success, fg: colors.onSuccess }
-        : { bg: colors.warning, fg: "#FFFFFF" };
+        : { bg: colors.warning, fg: colors.onWarning };
 
   const fire = useCallback(
     (kind: "complete" | "postpone") => {
@@ -99,6 +113,22 @@ export function SwipeableRow({
     opacity: x.value < 0 ? Math.min(1, -x.value / THRESHOLD) : 0,
   }));
 
+  // Screen reader users cannot swipe, so each swipe becomes an action in the row's actions menu.
+  const original = children.props;
+  const extra: AccessibilityActionInfo[] = [];
+  if (canComplete) extra.push({ name: ACTION_COMPLETE, label: completeLabel });
+  if (canPostpone) extra.push({ name: ACTION_SECONDARY, label: postponeLabel });
+
+  const accessibleChild = React.cloneElement(children, {
+    accessibilityActions: [...(original.accessibilityActions ?? []), ...extra],
+    onAccessibilityAction: (event: AccessibilityActionEvent) => {
+      const name = event.nativeEvent.actionName;
+      if (name === ACTION_COMPLETE) fire("complete");
+      else if (name === ACTION_SECONDARY) fire("postpone");
+      else original.onAccessibilityAction?.(event);
+    },
+  });
+
   return (
     <View style={styles.wrap}>
       {canComplete ? (
@@ -117,7 +147,7 @@ export function SwipeableRow({
             size={22}
             color={colors.onSuccess}
           />
-          <AppText variant="label" style={{ color: colors.onSuccess }}>
+          <AppText variant="label" fixed style={{ color: colors.onSuccess }}>
             {completeLabel}
           </AppText>
         </Animated.View>
@@ -133,7 +163,7 @@ export function SwipeableRow({
             postponeBg,
           ]}
         >
-          <AppText variant="label" style={{ color: leftColors.fg }}>
+          <AppText variant="label" fixed style={{ color: leftColors.fg }}>
             {postponeLabel}
           </AppText>
           <Ionicons name={postponeIcon} size={22} color={leftColors.fg} />
@@ -147,7 +177,7 @@ export function SwipeableRow({
             rowStyle,
           ]}
         >
-          {children}
+          {accessibleChild}
         </Animated.View>
       </GestureDetector>
     </View>

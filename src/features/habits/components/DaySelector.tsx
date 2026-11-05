@@ -1,16 +1,16 @@
 import { AppText } from "@/components/ui/AppText";
 import { Chip } from "@/components/ui/Chip";
 import {
-    ALL_DAYS,
-    WEEKDAYS_ONLY,
-    WEEKDAY_LETTER,
-    WEEKDAY_LONG,
-    WEEKENDS,
-    WEEK_ORDER,
-    sameDays,
+  ALL_DAYS,
+  WEEKDAYS_ONLY,
+  WEEKDAY_LETTER,
+  WEEKDAY_LONG,
+  WEEKENDS,
+  WEEK_ORDER,
+  sameDays,
 } from "@/lib/habitDays";
 import { useTheme } from "@/theme/ThemeProvider";
-import { spacing } from "@/theme/tokens";
+import { spacing, touch } from "@/theme/tokens";
 import * as Haptics from "expo-haptics";
 import { Pressable, StyleSheet, View } from "react-native";
 
@@ -60,13 +60,14 @@ export function DaySelector({ value, onChange }: Props) {
                 styles.day,
                 {
                   backgroundColor: selected ? colors.primary : colors.surface,
-                  borderColor: selected ? colors.primary : colors.border,
+                  borderColor: selected ? colors.primary : colors.inputBorder,
                 },
               ]}
             >
               <AppText
                 variant="label"
                 tone={selected ? "onPrimary" : "secondary"}
+                fixed
               >
                 {WEEKDAY_LETTER[day]}
               </AppText>
@@ -89,9 +90,9 @@ const styles = StyleSheet.create({
   presets: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   days: { flexDirection: "row", justifyContent: "space-between" },
   day: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: touch.minInteractive,
+    height: touch.minInteractive,
+    borderRadius: touch.minInteractive / 2,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
