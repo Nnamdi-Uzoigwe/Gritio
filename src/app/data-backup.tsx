@@ -4,15 +4,15 @@ import { Button } from "@/components/ui/Button";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { getSetting, setSetting } from "@/db/repositories/settings";
 import {
-    collectBackup,
-    countStored,
-    type StoredCounts,
+  collectBackup,
+  countStored,
+  type StoredCounts,
 } from "@/features/backup/collect";
 import {
-    BackupFileError,
-    pickBackupText,
-    shareBackupFile,
-    writeBackupFile,
+  BackupFileError,
+  pickBackupText,
+  shareBackupFile,
+  writeBackupFile,
 } from "@/features/backup/files";
 import type { BackupFile } from "@/features/backup/format";
 import { restoreBackup } from "@/features/backup/restore";
@@ -28,11 +28,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 
 type Problem = { title: string; lines: string[] };
@@ -378,9 +378,12 @@ export default function DataBackupScreen() {
             keep it somewhere safe and private.
           </AppText>
           <AppText variant="bodySmall" tone="secondary">
-            This is a copy you make yourself, not automatic cloud sync. If your
-            phone is lost, or Gritio is removed, or your phone does not keep its
-            data, anything you have not backed up can be lost.
+            <AppText variant="bodySmall" tone="secondary">
+              This creates a backup file on your device. It is not automatic
+              cloud sync. If your phone is lost, Gritio is removed, or its data
+              is cleared, any information not included in a backup cannot be
+              restored.
+            </AppText>
           </AppText>
           <AppText variant="bodySmall" tone="secondary">
             Reminders are rebuilt from your restored data and need notifications

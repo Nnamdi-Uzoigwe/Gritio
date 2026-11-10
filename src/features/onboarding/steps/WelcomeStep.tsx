@@ -6,13 +6,13 @@ import * as Haptics from "expo-haptics";
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
-    FadeInDown,
-    interpolateColor,
-    useAnimatedStyle,
-    useSharedValue,
-    withDelay,
-    withSpring,
-    withTiming,
+  FadeInDown,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { StepFrame } from "../components/StepFrame";
 
@@ -57,7 +57,7 @@ export function WelcomeStep({ active }: { active: boolean }) {
   return (
     <StepFrame
       title="Turn what you want into what you do."
-      subtitle="Gritio helps you break goals into small steps, put them in your day, and stay consistent, without the guilt."
+      subtitle="Gritio helps you break goals into small steps, plan them into your day, and stay consistent."
     >
       <View
         style={styles.visual}

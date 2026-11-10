@@ -68,7 +68,7 @@ export function RescheduleSheet({ visible, today, onClose, onPick }: Props) {
               color={colors.textMuted}
             />
             <AppText variant="caption" tone="muted">
-              Nothing is lost. It will simply appear on the new day.
+              Your task will move to the new day. Nothing will be deleted.
             </AppText>
           </View>
         </View>

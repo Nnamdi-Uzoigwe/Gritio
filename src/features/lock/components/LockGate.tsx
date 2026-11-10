@@ -5,12 +5,12 @@ import { spacing, typography } from "@/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Alert,
-    AppState,
-    StyleSheet,
-    Text,
-    View,
-    type AppStateStatus,
+  Alert,
+  AppState,
+  StyleSheet,
+  Text,
+  View,
+  type AppStateStatus,
 } from "react-native";
 import { authenticate, getLockSupport, type AuthFailure } from "../auth";
 import { LOCK_CONFIG } from "../config";
@@ -22,7 +22,7 @@ const CREAM = "#F3F1EC";
 const MESSAGES: Record<Exclude<AuthFailure, "unavailable">, string> = {
   cancelled: "Unlock was cancelled. Tap Unlock when you are ready.",
   lockout: "Too many attempts. Wait a moment, or use your phone passcode.",
-  failed: "That did not work. Please try again.",
+  failed: "We couldn't unlock Gritio. Please try again.",
 };
 
 /**

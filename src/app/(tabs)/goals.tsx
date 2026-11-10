@@ -47,7 +47,7 @@ const EMPTY: Record<GoalStatus, { title: string; body: string }> = {
   },
   archived: {
     title: "No archived goals",
-    body: "Archive a goal to put it aside without losing any of it.",
+    body: "Archive a goal to set it aside. Your progress and details stay saved.",
   },
 };
 

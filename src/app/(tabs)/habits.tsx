@@ -44,7 +44,7 @@ const EMPTY: Record<HabitStatus, { title: string; body: string }> = {
   },
   archived: {
     title: "No archived habits",
-    body: "Archive a habit to pause it without losing your history.",
+    body: "Archive a habit to pause it. Your history stays saved.",
   },
 };
 
