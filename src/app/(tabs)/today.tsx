@@ -479,7 +479,6 @@
 import { AppText } from "@/components/ui/AppText";
 import { Button } from "@/components/ui/Button";
 import { FloatingActionMenu } from "@/components/ui/FloatingActionMenu";
-import { GroupedRowsContext } from "@/components/ui/SwipeableRow";
 import { HabitLevelSheet } from "@/features/habits/components/HabitLevelSheet";
 import {
   AddTaskSheet,
@@ -611,20 +610,12 @@ export default function TodayScreen() {
     else toggle(item);
   };
 
-  const renderRow = (item: Commitment, index: number) => (
+  const renderRow = (item: Commitment) => (
     <Animated.View
       key={item.key}
       layout={LinearTransition.springify().damping(18)}
       entering={FadeIn.duration(220)}
       exiting={FadeOut.duration(160)}
-      style={
-        index > 0
-          ? {
-              borderTopWidth: StyleSheet.hairlineWidth,
-              borderTopColor: colors.border,
-            }
-          : undefined
-      }
     >
       <CommitmentRow
         item={item}
@@ -637,27 +628,13 @@ export default function TodayScreen() {
     </Animated.View>
   );
 
-  // One shared card per list. Rows inside it drop their own border and radius.
-  const group = (list: Commitment[]) => (
-    <GroupedRowsContext.Provider value>
-      <View
-        style={[
-          styles.group,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
-        {list.map(renderRow)}
-      </View>
-    </GroupedRowsContext.Provider>
-  );
-
   const section = (label: string, list: Commitment[]) =>
     list.length > 0 ? (
       <View style={styles.section} key={label}>
         <AppText variant="caption" tone="muted">
           {label}
         </AppText>
-        {group(list)}
+        <View style={styles.list}>{list.map(renderRow)}</View>
       </View>
     ) : null;
 
@@ -812,7 +789,9 @@ export default function TodayScreen() {
                     color={colors.textMuted}
                   />
                 </Pressable>
-                {showCompleted ? group(completed) : null}
+                {showCompleted ? (
+                  <View style={styles.list}>{completed.map(renderRow)}</View>
+                ) : null}
               </View>
             ) : null}
           </>
@@ -926,14 +905,14 @@ const styles = StyleSheet.create({
     paddingBottom: 140,
     gap: spacing.lg,
   },
-  header: { gap: spacing.xs },
+  header: { gap: spacing.lg },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
   },
-  greeting: { fontSize: 28, lineHeight: 34 },
+  greeting: { fontSize: 22, lineHeight: 34 },
   actions: { flexDirection: "row", gap: spacing.sm },
   iconButton: {
     width: touch.minTarget,
@@ -964,11 +943,7 @@ const styles = StyleSheet.create({
   },
   overdueText: { flex: 1 },
   section: { gap: spacing.sm },
-  group: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
+  list: { gap: spacing.sm },
   completedHeader: {
     flexDirection: "row",
     alignItems: "center",

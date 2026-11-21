@@ -3,7 +3,7 @@
 // import { motion, radii, spacing } from "@/theme/tokens";
 // import { Ionicons } from "@expo/vector-icons";
 // import * as Haptics from "expo-haptics";
-// import React, { useCallback } from "react";
+// import React, { createContext, useCallback, useContext } from "react";
 // import {
 //   StyleSheet,
 //   View,
@@ -21,6 +21,12 @@
 
 // const THRESHOLD = 96;
 // const MAX_PULL = 140;
+
+// /**
+//  * Wrap a set of rows in this provider when they sit inside one shared card.
+//  * Rows then drop their own border and radius, and the parent draws the card and dividers.
+//  */
+// export const GroupedRowsContext = createContext(false);
 
 // type ActionTone = "success" | "warning" | "primary";
 
@@ -55,6 +61,7 @@
 //   onPostpone,
 // }: Props) {
 //   const { colors } = useTheme();
+//   const grouped = useContext(GroupedRowsContext);
 //   const x = useSharedValue(0);
 //   const crossed = useSharedValue(0);
 //   const canComplete = onComplete !== undefined;
@@ -130,7 +137,7 @@
 //   });
 
 //   return (
-//     <View style={styles.wrap}>
+//     <View style={grouped ? undefined : styles.wrap}>
 //       {canComplete ? (
 //         <Animated.View
 //           pointerEvents="none"
@@ -173,7 +180,7 @@
 //         <Animated.View
 //           style={[
 //             { backgroundColor: colors.surface, borderColor: colors.border },
-//             styles.row,
+//             grouped ? undefined : styles.row,
 //             rowStyle,
 //           ]}
 //         >
@@ -245,6 +252,8 @@ type Props = {
   postponeIcon?: IconName;
   postponeTone?: ActionTone;
   onPostpone?: () => void;
+  /** The child draws its own card edge, so the row adds no border. The rounded clip stays. */
+  bare?: boolean;
 };
 
 const ACTION_COMPLETE = "swipe-complete";
@@ -258,6 +267,7 @@ export function SwipeableRow({
   postponeIcon = "calendar-outline",
   postponeTone = "warning",
   onPostpone,
+  bare = false,
 }: Props) {
   const { colors } = useTheme();
   const grouped = useContext(GroupedRowsContext);
@@ -379,7 +389,7 @@ export function SwipeableRow({
         <Animated.View
           style={[
             { backgroundColor: colors.surface, borderColor: colors.border },
-            grouped ? undefined : styles.row,
+            grouped || bare ? undefined : styles.row,
             rowStyle,
           ]}
         >
