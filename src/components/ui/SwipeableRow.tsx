@@ -1,9 +1,208 @@
+// import type { IconName } from "@/lib/focusAreas";
+// import { useTheme } from "@/theme/ThemeProvider";
+// import { motion, radii, spacing } from "@/theme/tokens";
+// import { Ionicons } from "@expo/vector-icons";
+// import * as Haptics from "expo-haptics";
+// import React, { useCallback } from "react";
+// import {
+//   StyleSheet,
+//   View,
+//   type AccessibilityActionEvent,
+//   type AccessibilityActionInfo,
+// } from "react-native";
+// import { Gesture, GestureDetector } from "react-native-gesture-handler";
+// import Animated, {
+//   useAnimatedStyle,
+//   useSharedValue,
+//   withSpring,
+// } from "react-native-reanimated";
+// import { scheduleOnRN } from "react-native-worklets";
+// import { AppText } from "./AppText";
+
+// const THRESHOLD = 96;
+// const MAX_PULL = 140;
+
+// type ActionTone = "success" | "warning" | "primary";
+
+// type AccessibleChild = {
+//   accessibilityActions?: AccessibilityActionInfo[];
+//   onAccessibilityAction?: (event: AccessibilityActionEvent) => void;
+// };
+
+// type Props = {
+//   /** One pressable row. Its screen reader actions are extended with the swipe actions below. */
+//   children: React.ReactElement<AccessibleChild>;
+//   /** Swipe right. Optional. */
+//   completeLabel?: string;
+//   onComplete?: () => void;
+//   /** Swipe left. Optional. */
+//   postponeLabel?: string;
+//   postponeIcon?: IconName;
+//   postponeTone?: ActionTone;
+//   onPostpone?: () => void;
+// };
+
+// const ACTION_COMPLETE = "swipe-complete";
+// const ACTION_SECONDARY = "swipe-secondary";
+
+// export function SwipeableRow({
+//   children,
+//   completeLabel = "Done",
+//   onComplete,
+//   postponeLabel = "Move",
+//   postponeIcon = "calendar-outline",
+//   postponeTone = "warning",
+//   onPostpone,
+// }: Props) {
+//   const { colors } = useTheme();
+//   const x = useSharedValue(0);
+//   const crossed = useSharedValue(0);
+//   const canComplete = onComplete !== undefined;
+//   const canPostpone = onPostpone !== undefined;
+
+//   const leftColors =
+//     postponeTone === "primary"
+//       ? { bg: colors.primary, fg: colors.onPrimary }
+//       : postponeTone === "success"
+//         ? { bg: colors.success, fg: colors.onSuccess }
+//         : { bg: colors.warning, fg: colors.onWarning };
+
+//   const fire = useCallback(
+//     (kind: "complete" | "postpone") => {
+//       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+//       if (kind === "complete") onComplete?.();
+//       else onPostpone?.();
+//     },
+//     [onComplete, onPostpone],
+//   );
+
+//   const tick = useCallback(() => {
+//     Haptics.selectionAsync().catch(() => {});
+//   }, []);
+
+//   const pan = Gesture.Pan()
+//     .activeOffsetX([-14, 14])
+//     .failOffsetY([-12, 12])
+//     .onUpdate((e) => {
+//       const next = Math.max(
+//         canPostpone ? -MAX_PULL : 0,
+//         Math.min(canComplete ? MAX_PULL : 0, e.translationX),
+//       );
+//       x.value = next;
+//       const state = next > THRESHOLD ? 1 : next < -THRESHOLD ? -1 : 0;
+//       if (state !== crossed.value) {
+//         crossed.value = state;
+//         if (state !== 0) scheduleOnRN(tick);
+//       }
+//     })
+//     .onEnd(() => {
+//       const final = x.value;
+//       x.value = withSpring(0, motion.spring.snappy);
+//       crossed.value = 0;
+//       if (final > THRESHOLD) scheduleOnRN(fire, "complete");
+//       else if (final < -THRESHOLD) scheduleOnRN(fire, "postpone");
+//     });
+
+//   const rowStyle = useAnimatedStyle(() => ({
+//     transform: [{ translateX: x.value }],
+//   }));
+//   const completeBg = useAnimatedStyle(() => ({
+//     opacity: x.value > 0 ? Math.min(1, x.value / THRESHOLD) : 0,
+//   }));
+//   const postponeBg = useAnimatedStyle(() => ({
+//     opacity: x.value < 0 ? Math.min(1, -x.value / THRESHOLD) : 0,
+//   }));
+
+//   // Screen reader users cannot swipe, so each swipe becomes an action in the row's actions menu.
+//   const original = children.props;
+//   const extra: AccessibilityActionInfo[] = [];
+//   if (canComplete) extra.push({ name: ACTION_COMPLETE, label: completeLabel });
+//   if (canPostpone) extra.push({ name: ACTION_SECONDARY, label: postponeLabel });
+
+//   const accessibleChild = React.cloneElement(children, {
+//     accessibilityActions: [...(original.accessibilityActions ?? []), ...extra],
+//     onAccessibilityAction: (event: AccessibilityActionEvent) => {
+//       const name = event.nativeEvent.actionName;
+//       if (name === ACTION_COMPLETE) fire("complete");
+//       else if (name === ACTION_SECONDARY) fire("postpone");
+//       else original.onAccessibilityAction?.(event);
+//     },
+//   });
+
+//   return (
+//     <View style={styles.wrap}>
+//       {canComplete ? (
+//         <Animated.View
+//           pointerEvents="none"
+//           style={[
+//             StyleSheet.absoluteFill,
+//             styles.bg,
+//             styles.bgLeft,
+//             { backgroundColor: colors.success },
+//             completeBg,
+//           ]}
+//         >
+//           <Ionicons
+//             name="checkmark-circle"
+//             size={22}
+//             color={colors.onSuccess}
+//           />
+//           <AppText variant="label" fixed style={{ color: colors.onSuccess }}>
+//             {completeLabel}
+//           </AppText>
+//         </Animated.View>
+//       ) : null}
+//       {canPostpone ? (
+//         <Animated.View
+//           pointerEvents="none"
+//           style={[
+//             StyleSheet.absoluteFill,
+//             styles.bg,
+//             styles.bgRight,
+//             { backgroundColor: leftColors.bg },
+//             postponeBg,
+//           ]}
+//         >
+//           <AppText variant="label" fixed style={{ color: leftColors.fg }}>
+//             {postponeLabel}
+//           </AppText>
+//           <Ionicons name={postponeIcon} size={22} color={leftColors.fg} />
+//         </Animated.View>
+//       ) : null}
+//       <GestureDetector gesture={pan}>
+//         <Animated.View
+//           style={[
+//             { backgroundColor: colors.surface, borderColor: colors.border },
+//             styles.row,
+//             rowStyle,
+//           ]}
+//         >
+//           {accessibleChild}
+//         </Animated.View>
+//       </GestureDetector>
+//     </View>
+//   );
+// }
+
+// const styles = StyleSheet.create({
+//   wrap: { borderRadius: radii.lg, overflow: "hidden" },
+//   row: { borderRadius: radii.lg, borderWidth: 1 },
+//   bg: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     gap: spacing.sm,
+//     paddingHorizontal: spacing.xl,
+//   },
+//   bgLeft: { justifyContent: "flex-start" },
+//   bgRight: { justifyContent: "flex-end" },
+// });
+
 import type { IconName } from "@/lib/focusAreas";
 import { useTheme } from "@/theme/ThemeProvider";
 import { motion, radii, spacing } from "@/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useCallback } from "react";
+import React, { createContext, useCallback, useContext } from "react";
 import {
   StyleSheet,
   View,
@@ -21,6 +220,12 @@ import { AppText } from "./AppText";
 
 const THRESHOLD = 96;
 const MAX_PULL = 140;
+
+/**
+ * Wrap a set of rows in this provider when they sit inside one shared card.
+ * Rows then drop their own border and radius, and the parent draws the card and dividers.
+ */
+export const GroupedRowsContext = createContext(false);
 
 type ActionTone = "success" | "warning" | "primary";
 
@@ -55,6 +260,7 @@ export function SwipeableRow({
   onPostpone,
 }: Props) {
   const { colors } = useTheme();
+  const grouped = useContext(GroupedRowsContext);
   const x = useSharedValue(0);
   const crossed = useSharedValue(0);
   const canComplete = onComplete !== undefined;
@@ -130,7 +336,7 @@ export function SwipeableRow({
   });
 
   return (
-    <View style={styles.wrap}>
+    <View style={grouped ? undefined : styles.wrap}>
       {canComplete ? (
         <Animated.View
           pointerEvents="none"
@@ -173,7 +379,7 @@ export function SwipeableRow({
         <Animated.View
           style={[
             { backgroundColor: colors.surface, borderColor: colors.border },
-            styles.row,
+            grouped ? undefined : styles.row,
             rowStyle,
           ]}
         >
