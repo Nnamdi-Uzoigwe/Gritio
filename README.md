@@ -54,3 +54,11 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+<!--
+Today: "Know what today needs" / "One clear list of tasks and habits."
+Progress: "See your day fill up" / "Every task you finish moves the bar."
+Goals: "Turn goals into steps" / "Milestones and steps that keep you moving."
+Habits: "Build habits that last" / "Streaks, minimum days and easy recovery."
+Weekly review: "Look back, then reset" / "A short weekly review keeps you honest."
+Privacy: "Your data stays on your phone" / "No account, no sign up, works offline." -->
