@@ -3,15 +3,14 @@
 ## Names
 
 - App name: Gritio (30 characters maximum on both stores)
-- Apple subtitle (30 maximum), pick one:
-  - Private habits and goals (24)
+- Apple subtitle (30 maximum):
   - Build discipline, privately (26)
-  - Goals, habits and daily focus (29)
+
 - Apple promotional text (170 maximum): A calm, private place for your goals, habits and daily plan. No account, no ads, works offline.
 - Apple keywords (100 maximum): habit tracker,goals,discipline,routine,planner,to-do,reflection,productivity,focus,offline
-- Google short description (80 maximum): Plan your day, build habits, reach goals. Private, offline, no account.
+<!-- - Google short description (80 maximum): Plan your day, build habits, reach goals. Private, offline, no account. -->
 
-## Full description (both stores)
+## Full description
 
 Gritio is a calm, private place to plan your day, build habits and work toward the goals that matter to you.
 

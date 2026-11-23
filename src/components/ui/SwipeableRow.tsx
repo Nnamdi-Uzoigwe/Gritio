@@ -46,6 +46,8 @@
 //   postponeIcon?: IconName;
 //   postponeTone?: ActionTone;
 //   onPostpone?: () => void;
+//   /** The child draws its own card edge, so the row adds no border. The rounded clip stays. */
+//   bare?: boolean;
 // };
 
 // const ACTION_COMPLETE = "swipe-complete";
@@ -59,6 +61,7 @@
 //   postponeIcon = "calendar-outline",
 //   postponeTone = "warning",
 //   onPostpone,
+//   bare = false,
 // }: Props) {
 //   const { colors } = useTheme();
 //   const grouped = useContext(GroupedRowsContext);
@@ -180,7 +183,7 @@
 //         <Animated.View
 //           style={[
 //             { backgroundColor: colors.surface, borderColor: colors.border },
-//             grouped ? undefined : styles.row,
+//             grouped || bare ? undefined : styles.row,
 //             rowStyle,
 //           ]}
 //         >
@@ -221,6 +224,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  type SharedValue,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { AppText } from "./AppText";
@@ -233,6 +237,14 @@ const MAX_PULL = 140;
  * Rows then drop their own border and radius, and the parent draws the card and dividers.
  */
 export const GroupedRowsContext = createContext(false);
+
+/**
+ * Horizontal swipe distance of the row (positive right, negative left).
+ * Children can read it to animate their own details while the row is dragged.
+ */
+export const SwipeProgressContext = createContext<SharedValue<number> | null>(
+  null,
+);
 
 type ActionTone = "success" | "warning" | "primary";
 
@@ -385,17 +397,19 @@ export function SwipeableRow({
           <Ionicons name={postponeIcon} size={22} color={leftColors.fg} />
         </Animated.View>
       ) : null}
-      <GestureDetector gesture={pan}>
-        <Animated.View
-          style={[
-            { backgroundColor: colors.surface, borderColor: colors.border },
-            grouped || bare ? undefined : styles.row,
-            rowStyle,
-          ]}
-        >
-          {accessibleChild}
-        </Animated.View>
-      </GestureDetector>
+      <SwipeProgressContext.Provider value={x}>
+        <GestureDetector gesture={pan}>
+          <Animated.View
+            style={[
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              grouped || bare ? undefined : styles.row,
+              rowStyle,
+            ]}
+          >
+            {accessibleChild}
+          </Animated.View>
+        </GestureDetector>
+      </SwipeProgressContext.Provider>
     </View>
   );
 }
